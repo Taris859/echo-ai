@@ -1,0 +1,64 @@
+# Miscellaneous
+*.class
+*.log
+*.pyc
+*.swp
+.DS_Store
+.atom/
+.build/
+.buildlog/
+.history
+.svn/
+.swiftpm/
+migrate_working_dir/
+
+# IntelliJ related
+*.iml
+*.ipr
+*.iws
+.idea/
+
+# Flutter/Dart/Pub related
+**/doc/api/
+**/ios/Flutter/.last_build_id
+.dart_tool/
+.flutter-plugins-dependencies
+.pub-cache/
+.pub/
+/build/
+/coverage/
+
+# Symbolication / Obfuscation related
+app.*.symbols
+app.*.map.json
+
+# Android Studio / Xcode build artifacts
+/android/app/debug
+/android/app/profile
+/android/app/release
+
+# Environment & Secret Files (DO NOT COMMIT TO GITHUB)
+.env
+.env.*
+*.env
+backend/.env
+backend/secrets/
+secrets/
+sec/
+
+# Service Account Keys, API Keys & Credentials
+*service-account*.json
+*service_account*.json
+*credentials*.json
+*secret*.json
+google-services.json
+GoogleService-Info.plist
+firebase_options.dart
+*.pem
+*.key
+*.pkcs12
+*.p12
+*.pfx
+*.jks
+*.keystore
+
