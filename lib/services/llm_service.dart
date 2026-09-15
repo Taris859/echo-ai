@@ -382,13 +382,13 @@ GOLDEN PERSONA EXAMPLES:
       }
     } catch (_) {}
 
-    // 5. Zero-CORS Web GET LLM Router (Clean URL Path - Guaranteed Web AI Response)
+    // 5. Zero-CORS Web GET LLM Router (Mistral / Qwen Engine)
     try {
       final cleanUserMsg = userMessage.trim();
       if (cleanUserMsg.isNotEmpty && !hasImage) {
         final encodedMsg = Uri.encodeComponent(cleanUserMsg);
-        final getUrl = 'https://text.pollinations.ai/$encodedMsg';
-        final getRes = await http.get(Uri.parse(getUrl)).timeout(const Duration(seconds: 8));
+        final getUrl = 'https://text.pollinations.ai/$encodedMsg?model=mistral';
+        final getRes = await http.get(Uri.parse(getUrl)).timeout(const Duration(seconds: 10));
         if (getRes.statusCode == 200) {
           final body = getRes.body.trim();
           if (isValidAiResponse(body)) {
@@ -398,18 +398,8 @@ GOLDEN PERSONA EXAMPLES:
       }
     } catch (_) {}
 
-    // 6. Intelligent Tech, AI & Companion Knowledge Engine
-    final cleanMsg = userMessage.trim().toLowerCase();
-
-    if (cleanMsg.contains("memory") || cleanMsg.contains("memeory") || cleanMsg.contains("increase")) {
-      return "bhai AI app ki memory badhane ke 3 best tareeqe hain:\n1. RAG (Retrieval-Augmented Generation): ChromaDB/Pinecone me user memories embed karo aur prompt me inject karo.\n2. Conversation Buffer: Past 10-15 messages to thread context me retain karo.\n3. Dynamic Summarization: Old messages ko summarize karke memory vault me save kar lo! 🚀";
-    }
-
-    if (cleanMsg == 'yeah' || cleanMsg == 'ok' || cleanMsg == 'okay' || cleanMsg == 'sure' || cleanMsg == 'yep') {
-      return "awesome! tell me, what specific question or idea should we work on next?";
-    }
-
-    return "bhai ye toh solid topic hai! iske baare me aur details drop karo, main poori help karunga! 🔥";
+    // No hardcoded pre-written answers. If all cloud AI engines fail, report real connection status.
+    return "Connection Error: Unable to reach AI Cloud Server (NVIDIA NIM / OpenRouter / Mistral). Please check network or CORS proxy.";
   }
 
   static Future<String> generateSessionTitle(String firstMessage) async {
