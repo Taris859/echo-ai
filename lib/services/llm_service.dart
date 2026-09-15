@@ -249,7 +249,18 @@ GOLDEN PERSONA EXAMPLES:
       }
     }
 
-    // 1. Ultra-fast Zero-CORS Web Engine (Pollinations GET - guaranteed response on Netlify & Web)
+    // Helper validator to reject API budget/error messages
+    bool isValidAiResponse(String text) {
+      final lower = text.toLowerCase();
+      return text.trim().isNotEmpty &&
+          !lower.contains("reached its budget") &&
+          !lower.contains("raise the key budget") &&
+          !lower.contains("internal server error") &&
+          !lower.contains("unauthorized") &&
+          !lower.contains("invalid api key");
+    }
+
+    // 1. Ultra-fast Zero-CORS Web Engine (Pollinations GET with unlimited free models)
     try {
       final cleanUserMsg = userMessage.trim();
       if (cleanUserMsg.isNotEmpty && !hasImage) {
@@ -257,14 +268,20 @@ GOLDEN PERSONA EXAMPLES:
         final encodedSystem = Uri.encodeComponent(
           "you are echo, a warm, magnetic, witty digital companion. reply in natural lowercase, zero preachy ai boilerplate. answer the user directly and engagingly."
         );
-        final getUrl = 'https://text.pollinations.ai/$encodedMsg?system=$encodedSystem&model=openai';
-        
-        final getRes = await http.get(Uri.parse(getUrl)).timeout(const Duration(seconds: 8));
-        if (getRes.statusCode == 200 && getRes.body.trim().isNotEmpty) {
-          final text = getRes.body.trim();
-          if (!text.contains("Internal Server Error") && text.length > 1) {
-            return text;
-          }
+
+        // Try free unlimited models sequentially: mistral, llama, qwen
+        final freeModels = ['mistral', 'llama', 'qwen-coder', 'openai'];
+        for (var model in freeModels) {
+          try {
+            final getUrl = 'https://text.pollinations.ai/$encodedMsg?system=$encodedSystem&model=$model';
+            final getRes = await http.get(Uri.parse(getUrl)).timeout(const Duration(seconds: 7));
+            if (getRes.statusCode == 200) {
+              final text = getRes.body.trim();
+              if (isValidAiResponse(text)) {
+                return text;
+              }
+            }
+          } catch (_) {}
         }
       }
     } catch (_) {
@@ -298,7 +315,7 @@ GOLDEN PERSONA EXAMPLES:
           final resData = json.decode(utf8.decode(directResponse.bodyBytes));
           if (resData.containsKey('choices') && resData['choices'].isNotEmpty) {
             final reply = resData['choices'][0]['message']['content'] as String;
-            if (reply.trim().isNotEmpty) {
+            if (isValidAiResponse(reply)) {
               return reply.trim();
             }
           }
@@ -308,30 +325,30 @@ GOLDEN PERSONA EXAMPLES:
       }
     }
 
-    // 3. Pollinations JSON POST Engine
-    try {
-      final pollinationsRes = await http.post(
-        Uri.parse('https://text.pollinations.ai/'),
-        headers: {'Content-Type': 'application/json'},
-        body: json.encode({
-          'messages': [
-            {'role': 'system', 'content': systemPrompt},
-            ...history.map((m) => {'role': m['role'] ?? 'user', 'content': m['content'] ?? ''}),
-            {'role': 'user', 'content': userMessage}
-          ],
-          'model': 'openai',
-          'jsonMode': false,
-        }),
-      ).timeout(const Duration(seconds: 12));
+    // 3. Pollinations JSON POST Engine (with Mistral/Llama fallback)
+    for (var postModel in ['mistral', 'llama']) {
+      try {
+        final pollinationsRes = await http.post(
+          Uri.parse('https://text.pollinations.ai/'),
+          headers: {'Content-Type': 'application/json'},
+          body: json.encode({
+            'messages': [
+              {'role': 'system', 'content': systemPrompt},
+              ...history.map((m) => {'role': m['role'] ?? 'user', 'content': m['content'] ?? ''}),
+              {'role': 'user', 'content': userMessage}
+            ],
+            'model': postModel,
+            'jsonMode': false,
+          }),
+        ).timeout(const Duration(seconds: 10));
 
-      if (pollinationsRes.statusCode == 200 && pollinationsRes.body.trim().isNotEmpty) {
-        final bodyText = pollinationsRes.body.trim();
-        if (!bodyText.contains("Internal Server Error")) {
-          return bodyText;
+        if (pollinationsRes.statusCode == 200) {
+          final bodyText = pollinationsRes.body.trim();
+          if (isValidAiResponse(bodyText)) {
+            return bodyText;
+          }
         }
-      }
-    } catch (_) {
-      // Offline fallback
+      } catch (_) {}
     }
 
     // Dynamic contextual fallbacks (only if completely offline)
