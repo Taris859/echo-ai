@@ -260,44 +260,17 @@ GOLDEN PERSONA EXAMPLES:
           !lower.contains("invalid api key");
     }
 
-    // 1. Ultra-fast Zero-CORS Web Engine (Pollinations GET with unlimited free models)
-    try {
-      final cleanUserMsg = userMessage.trim();
-      if (cleanUserMsg.isNotEmpty && !hasImage) {
-        final encodedMsg = Uri.encodeComponent(cleanUserMsg);
-        final encodedSystem = Uri.encodeComponent(
-          "you are echo, a warm, magnetic, witty digital companion. reply in natural lowercase, zero preachy ai boilerplate. answer the user directly and engagingly."
-        );
-
-        // Try free unlimited models sequentially: mistral, llama, qwen
-        final freeModels = ['mistral', 'llama', 'qwen-coder', 'openai'];
-        for (var model in freeModels) {
-          try {
-            final getUrl = 'https://text.pollinations.ai/$encodedMsg?system=$encodedSystem&model=$model';
-            final getRes = await http.get(Uri.parse(getUrl)).timeout(const Duration(seconds: 7));
-            if (getRes.statusCode == 200) {
-              final text = getRes.body.trim();
-              if (isValidAiResponse(text)) {
-                return text;
-              }
-            }
-          } catch (_) {}
-        }
-      }
-    } catch (_) {
-      // Failover to POST engines
-    }
-
-    // 2. Direct Cloud Call to NVIDIA NIM Engine with Web CORS Fallbacks
-    final cloudEndpoints = [
+    // 1. PRIMARY ENGINE: NVIDIA NIM Cloud Engine (using _nvidiaChatKey)
+    final nvidiaEndpoints = [
+      'https://integrate.api.nvidia.com/v1/chat/completions',
+      'https://corsproxy.io/?https://integrate.api.nvidia.com/v1/chat/completions',
       'https://echo-ai.vercel.app/api/chat',
       'https://echo-ai-backend.onrender.com/api/chat',
-      'https://integrate.api.nvidia.com/v1/chat/completions',
     ];
 
-    for (var endpoint in cloudEndpoints) {
+    for (var endpoint in nvidiaEndpoints) {
       try {
-        final directResponse = await http.post(
+        final nvidiaResponse = await http.post(
           Uri.parse(endpoint),
           headers: {
             'Authorization': 'Bearer $_nvidiaChatKey',
@@ -311,8 +284,8 @@ GOLDEN PERSONA EXAMPLES:
           }),
         ).timeout(Duration(seconds: hasImage ? 35 : 12));
 
-        if (directResponse.statusCode == 200) {
-          final resData = json.decode(utf8.decode(directResponse.bodyBytes));
+        if (nvidiaResponse.statusCode == 200) {
+          final resData = json.decode(utf8.decode(nvidiaResponse.bodyBytes));
           if (resData.containsKey('choices') && resData['choices'].isNotEmpty) {
             final reply = resData['choices'][0]['message']['content'] as String;
             if (isValidAiResponse(reply)) {
@@ -321,9 +294,34 @@ GOLDEN PERSONA EXAMPLES:
           }
         }
       } catch (_) {
-        // Silent failover to next endpoint
+        // Silent failover to next NVIDIA endpoint or fallback
       }
     }
+
+    // 2. SECONDARY FALLBACK: Zero-CORS Web Engine (Pollinations Mistral/Llama)
+    try {
+      final cleanUserMsg = userMessage.trim();
+      if (cleanUserMsg.isNotEmpty && !hasImage) {
+        final encodedMsg = Uri.encodeComponent(cleanUserMsg);
+        final encodedSystem = Uri.encodeComponent(
+          "you are echo, a warm, magnetic, witty digital companion. reply in natural lowercase, zero preachy ai boilerplate. answer the user directly and engagingly."
+        );
+
+        final freeModels = ['mistral', 'llama', 'qwen-coder'];
+        for (var model in freeModels) {
+          try {
+            final getUrl = 'https://text.pollinations.ai/$encodedMsg?system=$encodedSystem&model=$model';
+            final getRes = await http.get(Uri.parse(getUrl)).timeout(const Duration(seconds: 7));
+            if (getRes.statusCode == 200) {
+              final text = getRes.body.trim();
+              if (isValidAiResponse(text)) {
+                return text;
+              }
+            }
+          } catch (_) {}
+        }
+      }
+    } catch (_) {}
 
     // 3. Pollinations JSON POST Engine (with Mistral/Llama fallback)
     for (var postModel in ['mistral', 'llama']) {
