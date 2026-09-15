@@ -8537,84 +8537,84 @@ break
 case 9:s=2
 break
 case 12:case 8:case 5:e=new A.abM()
-p=15
-d=B.c.dI(d9)
-s=J.bJ(d)!==0&&!l?18:19
-break
-case 18:c=A.xS(2,d,B.a_,!1)
-b=A.xS(2,"you are echo, a warm, magnetic, witty digital companion. reply in natural lowercase, zero preachy ai boilerplate. answer the user directly and engagingly.",B.a_,!1)
-a=A.b(["mistral","llama","qwen-coder","openai"],t.s)
-b6=a,b7=b6.length,b4=0
-case 20:if(!(b4<b6.length)){s=22
-break}a0=b6[b4]
-p=24
-a1="https://text.pollinations.ai/"+A.j(c)+"?system="+A.j(b)+"&model="+A.j(a0)
-s=27
-return A.m(A.aNX(A.dL(a1,0,null)).ks(B.H0),$async$lx)
-case 27:a2=e1
-if(a2.b===200){c3=a2
-a3=B.c.dI(A.aBp(A.aAA(c3.e)).dq(c3.w))
-if(e.$1(a3)){c3=a3
-q=c3
-s=1
-break}}p=15
-s=26
-break
-case 24:p=23
-d0=o.pop()
-s=26
-break
-case 23:s=15
-break
-case 26:case 21:b6.length===b7||(0,A.E)(b6),++b4
-s=20
-break
-case 22:case 19:p=2
-s=17
-break
-case 15:p=14
-d1=o.pop()
-s=17
-break
-case 14:s=2
-break
-case 17:c4=["https://echo-ai.vercel.app/api/chat","https://echo-ai-backend.onrender.com/api/chat",u.h]
+c3=[u.h,"https://corsproxy.io/?https://integrate.api.nvidia.com/v1/chat/completions","https://echo-ai.vercel.app/api/chat","https://echo-ai-backend.onrender.com/api/chat"]
 b4=0
-case 28:if(!(b4<3)){s=30
-break}a4=c4[b4]
-p=32
-b6=A.dL(a4,0,null)
+case 14:if(!(b4<4)){s=16
+break}d=c3[b4]
+p=18
+b6=A.dL(d,0,null)
 b7=A.a_(["Authorization",u.R,"Content-Type","application/json"],c7,c7)
 b7=A.K3(b6,B.ay.i8(A.a_(["model","meta/llama-3.2-11b-vision-instruct","messages",m,"temperature",0.7,"max_tokens",1500],c7,b3)),b7)
-s=35
+s=21
 return A.m(b7.ks(new A.aW(1e6*(l?35:12))),$async$lx)
-case 35:a5=e1
-if(a5.b===200){b6=a5.w
-a6=B.ay.dq(new A.tb(!1).uw(b6,0,null,!0))
-if(a6.an("choices")&&J.jH(J.cK(a6,"choices"))){a7=A.aQ(J.cK(J.cK(J.cK(J.cK(a6,"choices"),0),"message"),"content"))
-if(e.$1(a7)){b6=J.aRP(a7)
+case 21:c=e1
+if(c.b===200){b6=c.w
+b=B.ay.dq(new A.tb(!1).uw(b6,0,null,!0))
+if(b.an("choices")&&J.jH(J.cK(b,"choices"))){a=A.aQ(J.cK(J.cK(J.cK(J.cK(b,"choices"),0),"message"),"content"))
+if(e.$1(a)){b6=J.aRP(a)
 q=b6
 s=1
 break}}}p=2
+s=20
+break
+case 18:p=17
+d0=o.pop()
+s=20
+break
+case 17:s=2
+break
+case 20:case 15:++b4
+s=14
+break
+case 16:p=23
+a0=B.c.dI(d9)
+s=J.bJ(a0)!==0&&!l?26:27
+break
+case 26:a1=A.xS(2,a0,B.a_,!1)
+a2=A.xS(2,"you are echo, a warm, magnetic, witty digital companion. reply in natural lowercase, zero preachy ai boilerplate. answer the user directly and engagingly.",B.a_,!1)
+a3=A.b(["mistral","llama","qwen-coder"],t.s)
+b6=a3,b7=b6.length,b4=0
+case 28:if(!(b4<b6.length)){s=30
+break}a4=b6[b4]
+p=32
+a5="https://text.pollinations.ai/"+A.j(a1)+"?system="+A.j(a2)+"&model="+A.j(a4)
+s=35
+return A.m(A.aNX(A.dL(a5,0,null)).ks(B.H0),$async$lx)
+case 35:a6=e1
+if(a6.b===200){c4=a6
+a7=B.c.dI(A.aBp(A.aAA(c4.e)).dq(c4.w))
+if(e.$1(a7)){c4=a7
+q=c4
+s=1
+break}}p=23
 s=34
 break
 case 32:p=31
-d2=o.pop()
+d1=o.pop()
 s=34
 break
-case 31:s=2
+case 31:s=23
 break
-case 34:case 29:++b4
+case 34:case 29:b6.length===b7||(0,A.E)(b6),++b4
 s=28
 break
-case 30:b6=["mistral","llama"],b7=t.H7,c3=A.Y(d4).i("a2<1,am<l,@>>"),b4=0
+case 30:case 27:p=2
+s=25
+break
+case 23:p=22
+d2=o.pop()
+s=25
+break
+case 22:s=2
+break
+case 25:b6=["mistral","llama"],b7=t.H7,c4=A.Y(d4).i("a2<1,am<l,@>>"),b4=0
 case 36:if(!(b4<2)){s=38
 break}a8=b6[b4]
 p=40
 c5=A.dL("https://text.pollinations.ai/",0,null)
 c6=A.a_(["Content-Type","application/json"],c7,c7)
 a9=A.b([A.a_(["role","system","content",n],c7,c7)],b7)
-J.aGN(a9,new A.a2(d4,new A.abL(),c3))
+J.aGN(a9,new A.a2(d4,new A.abL(),c4))
 J.dD(a9,A.a_(["role","user","content",d9],c7,c7))
 s=43
 return A.m(A.K3(c5,B.ay.i8(A.a_(["messages",a9,"model",a8,"jsonMode",!1],c7,b3)),c6).ks(B.GN),$async$lx)
