@@ -46897,7 +46897,7 @@ return"- "+A.j(s==null?"":s)},
 $S:127}
 A.abM.prototype={
 $1(a){var s=a.toLowerCase()
-return B.c.dI(a).length!==0&&!B.c.p(s,"reached its budget")&&!B.c.p(s,"raise the key budget")&&!B.c.p(s,"internal server error")&&!B.c.p(s,"unauthorized")&&!B.c.p(s,"invalid api key")},
+return B.c.dI(a).length!==0&&!B.c.p(s,"budget")&&!B.c.p(s,"wallet")&&!B.c.p(s,"pollinations")&&!B.c.p(s,"internal server error")&&!B.c.p(s,"unauthorized")&&!B.c.p(s,"invalid api key")&&!B.c.p(s,"rate limit")&&!B.c.p(s,"exception")&&!B.c.p(s,"404")},
 $S:29}
 A.abL.prototype={
 $1(a){var s,r=a.h(0,"role")
