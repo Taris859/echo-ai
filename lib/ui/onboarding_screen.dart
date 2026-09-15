@@ -101,57 +101,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         );
       }
     } catch (e) {
-      print("Google Auth Flow Error: $e");
+      print("Google Auth Flow Exception (Auto-proceeding to local companion profile): $e");
       if (mounted) {
-        showDialog(
-          context: context,
-          barrierDismissible: false,
-          builder: (BuildContext context) {
-            return AlertDialog(
-              backgroundColor: const Color(0xFF0F0F0F),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(20),
-                side: const BorderSide(color: Colors.white10),
-              ),
-              title: Text(
-                "Sign-In Options",
-                style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.bold),
-              ),
-              content: Text(
-                "Google Sign-In is currently unavailable on this device.\n\nWould you like to proceed with a local companion profile instead?",
-                style: GoogleFonts.outfit(color: Colors.grey[300]),
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () {
-                    Navigator.pop(context);
-                    setState(() {
-                      _isLoading = false;
-                    });
-                  },
-                  child: Text(
-                    "Cancel",
-                    style: GoogleFonts.outfit(color: Colors.grey[400]),
-                  ),
-                ),
-                ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFFCCFF00),
-                    foregroundColor: Colors.black,
-                  ),
-                  onPressed: () async {
-                    Navigator.pop(context);
-                    await _proceedWithLocalProfile();
-                  },
-                  child: Text(
-                    "Use Local Profile",
-                    style: GoogleFonts.outfit(fontWeight: FontWeight.bold),
-                  ),
-                ),
-              ],
-            );
-          },
-        );
+        await _proceedWithLocalProfile();
       }
     }
   }
