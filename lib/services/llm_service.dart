@@ -173,7 +173,7 @@ GOLDEN PERSONA EXAMPLES:
 
     final systemPrompt = getSystemPrompt(memories, profile, personality, emojis, adultChats);
 
-    final messages = [
+    final List<Map<String, dynamic>> messages = <Map<String, dynamic>>[
       {'role': 'system', 'content': systemPrompt},
     ];
 
