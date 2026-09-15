@@ -6,6 +6,9 @@ import 'package:flutter/foundation.dart' show defaultTargetPlatform, TargetPlatf
 class LlmService {
   static const String _nvidiaChatKey = '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';
 
+  // Cloudflare Worker Proxy URL (Set this to your deployed worker URL to bypass CORS on Web & secure API keys)
+  static const String _proxyUrl = '';
+
   static List<String> get _backendBaseUrls {
     if (defaultTargetPlatform == TargetPlatform.android) {
       return ['http://10.0.2.2:8000', 'http://127.0.0.1:8000'];
@@ -271,7 +274,36 @@ GOLDEN PERSONA EXAMPLES:
           !lower.contains("404 not found");
     }
 
-    // 1. NVIDIA NIM Cloud API Engine (Direct & CORS Proxies for Web)
+    // 1. Cloudflare Worker Proxy Endpoint (Zero-CORS Web Proxy)
+    if (_proxyUrl.isNotEmpty) {
+      try {
+        print("Attempting Cloudflare Worker Proxy: $_proxyUrl");
+        final res = await http.post(
+          Uri.parse(_proxyUrl),
+          headers: {'Content-Type': 'application/json'},
+          body: json.encode(payload),
+        ).timeout(Duration(seconds: hasImage ? 35 : 15));
+
+        print("Worker Proxy Status: ${res.statusCode}");
+        if (res.statusCode == 200) {
+          final resData = json.decode(utf8.decode(res.bodyBytes));
+          if (resData['choices'] != null && resData['choices'].isNotEmpty) {
+            final messageObj = resData['choices'][0]['message'];
+            String reply = (messageObj['content'] as String? ?? '').trim();
+            if (reply.isEmpty) {
+              reply = (messageObj['reasoning'] as String? ?? messageObj['reasoning_content'] as String? ?? '').trim();
+            }
+            if (isValidAiResponse(reply)) return reply;
+          }
+        } else {
+          print("Worker Proxy Error Body: ${res.body}");
+        }
+      } catch (e) {
+        print("Worker Proxy Exception: $e");
+      }
+    }
+
+    // 2. NVIDIA NIM Direct / Web Proxy Fallbacks
     final nvidiaEndpoints = [
       'https://integrate.api.nvidia.com/v1/chat/completions',
       'https://corsproxy.io/?https://integrate.api.nvidia.com/v1/chat/completions',
@@ -288,7 +320,7 @@ GOLDEN PERSONA EXAMPLES:
             'Content-Type': 'application/json',
           },
           body: json.encode(payload),
-        ).timeout(Duration(seconds: hasImage ? 35 : 12));
+        ).timeout(Duration(seconds: hasImage ? 35 : 10));
 
         print("NVIDIA NIM [$endpoint] Status Code: ${res.statusCode}");
         if (res.statusCode == 200) {
@@ -311,7 +343,7 @@ GOLDEN PERSONA EXAMPLES:
       }
     }
 
-    // 2. Pollinations AI Zero-CORS Web POST Engine
+    // 3. Pollinations AI Zero-CORS Web POST Engine
     try {
       print("Pollinations POST Engine Attempting...");
       final polRes = await http.post(
@@ -322,7 +354,7 @@ GOLDEN PERSONA EXAMPLES:
           'model': 'openai',
           'seed': DateTime.now().millisecondsSinceEpoch,
         }),
-      ).timeout(const Duration(seconds: 12));
+      ).timeout(const Duration(seconds: 10));
 
       print("Pollinations POST Status Code: ${polRes.statusCode}");
       if (polRes.statusCode == 200) {
@@ -337,83 +369,14 @@ GOLDEN PERSONA EXAMPLES:
       print("Pollinations POST Exception: $e");
     }
 
-    // 3. OpenRouter Free LLaMA 3.2 Cloud API Engine
-    try {
-      print("OpenRouter Engine Attempting...");
-      final openRouterRes = await http.post(
-        Uri.parse('https://openrouter.ai/api/v1/chat/completions'),
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: json.encode({
-          'model': 'meta-llama/llama-3.2-11b-vision-instruct:free',
-          'messages': messages,
-          'temperature': 0.7,
-          'max_tokens': 1200,
-        }),
-      ).timeout(const Duration(seconds: 10));
-
-      print("OpenRouter Status Code: ${openRouterRes.statusCode}");
-      if (openRouterRes.statusCode == 200) {
-        final data = json.decode(utf8.decode(openRouterRes.bodyBytes));
-        if (data.containsKey('choices') && data['choices'].isNotEmpty) {
-          final reply = (data['choices'][0]['message']['content'] as String).trim();
-          if (isValidAiResponse(reply)) {
-            return reply;
-          }
-        }
-      } else {
-        print("OpenRouter Error Body: ${openRouterRes.body}");
-      }
-    } catch (e) {
-      print("OpenRouter Exception: $e");
-    }
-
-    // 4. Puter Zero-CORS AI Engine
-    try {
-      print("Puter Engine Attempting...");
-      final puterRes = await http.post(
-        Uri.parse('https://api.puter.com/v2/ai/chat'),
-        headers: {'Content-Type': 'application/json'},
-        body: json.encode({
-          'interface': 'puter-chat-completion',
-          'driver': 'openai-completion',
-          'method': 'complete',
-          'args': {
-            'messages': messages,
-            'model': 'meta-llama/llama-3.2-11b-vision-instruct',
-            'stream': false,
-          }
-        }),
-      ).timeout(const Duration(seconds: 10));
-
-      print("Puter Status Code: ${puterRes.statusCode}");
-      if (puterRes.statusCode == 200) {
-        final data = json.decode(utf8.decode(puterRes.bodyBytes));
-        String? replyText;
-        if (data is Map && data.containsKey('message')) {
-          replyText = data['message']['content'];
-        } else if (data is Map && data.containsKey('result')) {
-          replyText = data['result'];
-        }
-        if (replyText != null && isValidAiResponse(replyText)) {
-          return replyText.trim();
-        }
-      } else {
-        print("Puter Error Body: ${puterRes.body}");
-      }
-    } catch (e) {
-      print("Puter Exception: $e");
-    }
-
-    // 5. Zero-CORS Web GET LLM Router
+    // 4. Zero-CORS Web GET LLM Router
     try {
       final cleanUserMsg = userMessage.trim();
       if (cleanUserMsg.isNotEmpty && !hasImage) {
         print("Pollinations GET Engine Attempting...");
         final encodedMsg = Uri.encodeComponent(cleanUserMsg);
         final getUrl = 'https://text.pollinations.ai/$encodedMsg?model=openai&cache=false';
-        final getRes = await http.get(Uri.parse(getUrl)).timeout(const Duration(seconds: 10));
+        final getRes = await http.get(Uri.parse(getUrl)).timeout(const Duration(seconds: 8));
         print("Pollinations GET Status Code: ${getRes.statusCode}");
         if (getRes.statusCode == 200) {
           final body = utf8.decode(getRes.bodyBytes).trim();
@@ -428,8 +391,7 @@ GOLDEN PERSONA EXAMPLES:
       print("Pollinations GET Exception: $e");
     }
 
-    // No hardcoded pre-written answers. If all cloud AI engines fail, report real connection status.
-    return "Connection Error: Unable to reach AI Cloud Server (NVIDIA NIM / OpenRouter / Mistral). Please check network or CORS proxy.";
+    return "Connection Error: Unable to reach AI Cloud Server (NVIDIA NIM / Worker Proxy). Please check network connection.";
   }
 
   static Future<String> generateSessionTitle(String firstMessage) async {
@@ -442,26 +404,29 @@ GOLDEN PERSONA EXAMPLES:
       }
     }
 
+    final targetEndpoint = _proxyUrl.isNotEmpty ? _proxyUrl : 'https://integrate.api.nvidia.com/v1/chat/completions';
+    final headers = <String, String>{'Content-Type': 'application/json'};
+    if (_proxyUrl.isEmpty) {
+      headers['Authorization'] = 'Bearer $_nvidiaChatKey';
+    }
+
     try {
       final response = await http.post(
-        Uri.parse('https://integrate.api.nvidia.com/v1/chat/completions'),
-        headers: {
-          'Authorization': 'Bearer $_nvidiaChatKey',
-          'Content-Type': 'application/json',
-        },
+        Uri.parse(targetEndpoint),
+        headers: headers,
         body: json.encode({
           'model': 'meta/llama-3.2-11b-vision-instruct',
           'messages': [
             {
               'role': 'system',
-              'content': 'You are a chat title generator. Generate a concise 3 to 5 word title summarizing the user message. Do NOT use quotes, punctuation, or preamble. Return ONLY the title text.'
+              'content': 'You are a chat title generator. Generate a concise 3 to 5 word title summarizing the user message. Return ONLY the title text.'
             },
             {'role': 'user', 'content': firstMessage}
           ],
           'temperature': 0.1,
           'max_tokens': 15,
         }),
-      ).timeout(const Duration(seconds: 4));
+      ).timeout(const Duration(seconds: 5));
 
       if (response.statusCode == 200) {
         final resData = json.decode(utf8.decode(response.bodyBytes));
