@@ -209,21 +209,14 @@ GOLDEN PERSONA EXAMPLES:
 
     messages.add({'role': 'user', 'content': userContent});
 
-    final modelName = hasImage ? 'meta/llama-3.2-11b-vision-instruct' : 'deepseek-ai/deepseek-v4-flash-0731';
+    const modelName = 'meta/llama-3.2-11b-vision-instruct';
 
     final Map<String, dynamic> payload = {
       'model': modelName,
       'messages': messages,
       'temperature': 0.7,
-      'max_tokens': 4096,
+      'max_tokens': 1500,
     };
-    if (!hasImage) {
-      payload['top_p'] = 0.95;
-      payload['chat_template_kwargs'] = {
-        'thinking': true,
-        'reasoning_effort': 'high',
-      };
-    }
 
     // Fast check if local backend is active (only for text-only messages, bypass for image vision requests)
     if (!hasImage) {
