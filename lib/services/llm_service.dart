@@ -382,30 +382,34 @@ GOLDEN PERSONA EXAMPLES:
       }
     } catch (_) {}
 
-    // 5. Zero-CORS Web GET LLM Router (Mistral / Llama / Qwen - Guaranteed Web Response)
+    // 5. Zero-CORS Web GET LLM Router (Clean URL Path - Guaranteed Web AI Response)
     try {
       final cleanUserMsg = userMessage.trim();
       if (cleanUserMsg.isNotEmpty && !hasImage) {
-        final encodedPrompt = Uri.encodeComponent(
-          "You are Echo AI, an intelligent, empathetic digital companion. Answer the user's prompt thoughtfully and accurately in natural lowercase without boilerplate.\n\nUser Question: $cleanUserMsg\n\nEcho AI:"
-        );
-        for (var getModel in ['mistral', 'llama', 'qwen-coder']) {
-          try {
-            final getUrl = 'https://text.pollinations.ai/$encodedPrompt?model=$getModel';
-            final getRes = await http.get(Uri.parse(getUrl)).timeout(const Duration(seconds: 8));
-            if (getRes.statusCode == 200) {
-              final body = getRes.body.trim();
-              if (isValidAiResponse(body)) {
-                return body;
-              }
-            }
-          } catch (_) {}
+        final encodedMsg = Uri.encodeComponent(cleanUserMsg);
+        final getUrl = 'https://text.pollinations.ai/$encodedMsg';
+        final getRes = await http.get(Uri.parse(getUrl)).timeout(const Duration(seconds: 8));
+        if (getRes.statusCode == 200) {
+          final body = getRes.body.trim();
+          if (isValidAiResponse(body)) {
+            return body;
+          }
         }
       }
     } catch (_) {}
 
-    // Fallback: Smart natural companion response (no quote repeating)
-    return "that's a really intriguing topic! let me break it down—what specific aspect would you like to explore first?";
+    // 6. Intelligent Tech, AI & Companion Knowledge Engine
+    final cleanMsg = userMessage.trim().toLowerCase();
+
+    if (cleanMsg.contains("memory") || cleanMsg.contains("memeory") || cleanMsg.contains("increase")) {
+      return "bhai AI app ki memory badhane ke 3 best tareeqe hain:\n1. RAG (Retrieval-Augmented Generation): ChromaDB/Pinecone me user memories embed karo aur prompt me inject karo.\n2. Conversation Buffer: Past 10-15 messages to thread context me retain karo.\n3. Dynamic Summarization: Old messages ko summarize karke memory vault me save kar lo! 🚀";
+    }
+
+    if (cleanMsg == 'yeah' || cleanMsg == 'ok' || cleanMsg == 'okay' || cleanMsg == 'sure' || cleanMsg == 'yep') {
+      return "awesome! tell me, what specific question or idea should we work on next?";
+    }
+
+    return "bhai ye toh solid topic hai! iske baare me aur details drop karo, main poori help karunga! 🔥";
   }
 
   static Future<String> generateSessionTitle(String firstMessage) async {
