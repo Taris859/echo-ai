@@ -6,45 +6,30 @@ on:
       - main
 
 permissions:
-  contents: read
-  pages: write
-  id-token: write
-
-concurrency:
-  group: 'pages'
-  cancel-in-progress: true
+  contents: write
 
 jobs:
-  deploy:
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
+  build-and-deploy:
     runs-on: ubuntu-latest
     steps:
-      - name: 1. Checkout Repository
+      - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: 2. Setup Flutter Framework
+      - name: Setup Flutter Framework
         uses: subosito/flutter-action@v2
         with:
           channel: 'stable'
 
-      - name: 3. Install Dependencies
+      - name: Install Dependencies
         run: flutter pub get
 
-      - name: 4. Build Web App for GitHub Pages
+      - name: Build Web App
         run: |
-          flutter build web --base-href "/echo-ai/"
+          flutter build web --release --base-href "/echo-ai/"
           cp build/web/index.html build/web/404.html
 
-      - name: 5. Setup Pages
-        uses: actions/configure-pages@v5
-
-      - name: 6. Upload Pages Artifact
-        uses: actions/upload-pages-artifact@v3
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v4
         with:
-          path: 'build/web'
-
-      - name: 7. Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v4
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./build/web
