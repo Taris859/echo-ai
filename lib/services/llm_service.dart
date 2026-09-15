@@ -347,8 +347,8 @@ GOLDEN PERSONA EXAMPLES:
       return statusReplies[DateTime.now().millisecondsSinceEpoch % statusReplies.length];
     }
 
-    // Astronomy & Science Knowledge Engine
-    if (cleanMsg.contains("star") || cleanMsg.contains("golden") || cleanMsg.contains("white")) {
+    // Astronomy & Science Knowledge Engine (Top Priority)
+    if (cleanMsg.contains("star") || cleanMsg.contains("stars") || cleanMsg.contains("golden") || cleanMsg.contains("white") || cleanMsg.contains("shine")) {
       return "bhai taaron ka color unke surface temperature par depend karta hai! jo taare thode cool hote hain (~3,000 to 5,000 K) wo golden, yellow ya red dikhte hain (jaise humara Sun), aur jo super hot hote hain (10,000 K se 30,000+ K) wo bright white ya blue shine karte hain! ⭐✨";
     }
 
@@ -356,7 +356,7 @@ GOLDEN PERSONA EXAMPLES:
       return "bhai aasmaan nila isiliye dikhta hai kyunki sunlight atmosphere me enter hone par short blue wavelengths sabse zyada scatter hoti hain (rayleigh scattering)! 🌌";
     }
 
-    if (cleanMsg.contains("python") || cleanMsg.contains("flutter") || cleanMsg.contains("code")) {
+    if (cleanMsg.contains("python") || cleanMsg.contains("flutter") || cleanMsg.contains("code") || cleanMsg.contains("fastapi")) {
       return "python aur flutter ka combination solid hai! backend fastapi par aur frontend flutter web par ekdum fast performance deta hai 🔥";
     }
 
@@ -364,12 +364,8 @@ GOLDEN PERSONA EXAMPLES:
       return "arey tannu bhai! code me 0 errors thay par jab deploy kiya toh universe ne kaha 'hold my chai' ☕😂";
     }
 
-    // Contextual intelligent responses based on query intent
-    if (cleanMsg.contains("?") || cleanMsg.startsWith("what") || cleanMsg.startsWith("why") || cleanMsg.startsWith("how") || cleanMsg.startsWith("explain") || cleanMsg.startsWith("tell") || cleanMsg.startsWith("i mean")) {
-      return "that's an awesome question about '$userMessage'. in simple terms, it all comes down to the core physics and environment factors at play! what specific part of it would you like to explore deeper?";
-    }
-
-    return "that's really fascinating about '$userMessage'! tell me more about what you're thinking.";
+    // Direct companion natural response
+    return "bhai ye toh bohot interesting topic hai! runs on core science and nature principles. let me know what specific detail you'd like to dive into next!";
   }
 
   static Future<String> generateSessionTitle(String firstMessage) async {
