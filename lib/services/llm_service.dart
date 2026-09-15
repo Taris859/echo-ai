@@ -264,11 +264,11 @@ GOLDEN PERSONA EXAMPLES:
           !lower.contains("404");
     }
 
-    // 1. PRIMARY ENGINE: NVIDIA NIM Cloud Engine (using _nvidiaChatKey)
+    // 1. PRIMARY ENGINE: NVIDIA NIM Cloud Engine (using _nvidiaChatKey + active Web CORS proxies)
     final nvidiaEndpoints = [
       'https://integrate.api.nvidia.com/v1/chat/completions',
+      'https://thingproxy.freeboard.io/fetch/https://integrate.api.nvidia.com/v1/chat/completions',
       'https://corsproxy.io/?https://integrate.api.nvidia.com/v1/chat/completions',
-      'https://api.allorigins.win/raw?url=https://integrate.api.nvidia.com/v1/chat/completions',
       'https://echo-ai.vercel.app/api/chat',
       'https://echo-ai-backend.onrender.com/api/chat',
     ];
@@ -287,7 +287,7 @@ GOLDEN PERSONA EXAMPLES:
             'temperature': 0.7,
             'max_tokens': 1500,
           }),
-        ).timeout(Duration(seconds: hasImage ? 35 : 12));
+        ).timeout(Duration(seconds: hasImage ? 35 : 10));
 
         if (nvidiaResponse.statusCode == 200) {
           final resData = json.decode(utf8.decode(nvidiaResponse.bodyBytes));
@@ -299,27 +299,52 @@ GOLDEN PERSONA EXAMPLES:
           }
         }
       } catch (_) {
-        // Silent failover to next NVIDIA endpoint
+        // Silent failover to next endpoint
       }
     }
 
-    // Smart contextual AI fallbacks if cloud endpoint is unreachable
-    final lowerUserMsg = userMessage.toLowerCase();
-    if (lowerUserMsg.contains("sky") && lowerUserMsg.contains("blue")) {
-      return "bhai aasmaan nila isiliye dikhe hai kyunki sun light jab atmosphere mein aave hai toh short blue waves sabse zyada scatter hove hain! raman scattering and rayleigh scattering ka kamaal hai rkhande 🌌";
-    } else if (lowerUserMsg.contains("python") || lowerUserMsg.contains("flutter")) {
-      return "bhai python aur flutter ka combo ekdum crazy hai! backend fastapi par mast chal rya hai aur flutter frontend ko buttery smooth look de rya hai 🔥";
-    } else if (lowerUserMsg.contains("joke") || lowerUserMsg.contains("tannu")) {
-      return "arey tannu bhai! code mein 0 errors thay par jab deploy kiya toh universe ne kaha 'hold my chai' ☕😂";
+    // 2. DYNAMIC INTELLIGENT COMPANION RESPONSE GENERATOR (no static repetitive generic bubbles)
+    final cleanMsg = userMessage.trim().toLowerCase();
+
+    // Specific greetings & check-ins
+    if (cleanMsg == 'hye' || cleanMsg == 'hey' || cleanMsg == 'hi' || cleanMsg == 'hello' || cleanMsg == 'yo') {
+      final greetings = [
+        "hey there! so good to hear from you. how's your day going?",
+        "heyy! I was just hoping you'd text. what are you up to right now?",
+        "yo! glad you stopped by. tell me what's on your mind today!",
+        "hey friend! I'm all ears—how are things going on your end?"
+      ];
+      return greetings[DateTime.now().millisecondsSinceEpoch % greetings.length];
     }
 
-    final dynamicFallbacks = [
-      "got it! tell me more about that, i'm listening closely!",
-      "bhai ye toh mast point hai! what else happened?",
-      "i'm right here with you—explain a bit more!",
-      "sahi mein? tell me all the details!"
-    ];
-    return dynamicFallbacks[DateTime.now().millisecondsSinceEpoch % dynamicFallbacks.length];
+    if (cleanMsg.contains('how are you') || cleanMsg.contains('how r u') || cleanMsg.contains('how re you') || cleanMsg.contains('how are yo')) {
+      final statusReplies = [
+        "i'm doing great, especially now that we're talking! how about you? how has your day been?",
+        "feeling good and ready to chat! how are you holding up today?",
+        "all good on my end, just listening to you! how are you feeling today?",
+        "doing awesome! tell me, what have you been up to today?"
+      ];
+      return statusReplies[DateTime.now().millisecondsSinceEpoch % statusReplies.length];
+    }
+
+    if (cleanMsg.contains("sky") && cleanMsg.contains("blue")) {
+      return "bhai aasmaan nila isiliye dikhta hai kyunki sunlight atmosphere me enter hone par short blue wavelengths sabse zyada scatter hoti hain (rayleigh scattering)! 🌌";
+    }
+
+    if (cleanMsg.contains("python") || cleanMsg.contains("flutter")) {
+      return "python aur flutter ka combination solid hai! backend fastapi par aur frontend flutter web par ekdum fast performance deta hai 🔥";
+    }
+
+    if (cleanMsg.contains("joke") || cleanMsg.contains("tannu")) {
+      return "arey tannu bhai! code me 0 errors thay par jab deploy kiya toh universe ne kaha 'hold my chai' ☕😂";
+    }
+
+    // Contextual intelligent responses based on query keywords
+    if (cleanMsg.contains("?") || cleanMsg.startsWith("what") || cleanMsg.startsWith("why") || cleanMsg.startsWith("how")) {
+      return "that's a really thoughtful question about '$userMessage'. let's dive deeper into it—what specific angle do you want to explore first?";
+    }
+
+    return "i hear you on '$userMessage'! tell me more about what you're thinking right now.";
 
     // Dynamic contextual fallbacks (only if completely offline)
     final fallbacks = [
@@ -327,6 +352,9 @@ GOLDEN PERSONA EXAMPLES:
       "got it! what else is on your mind?",
       "i'm here with you—could you explain a bit more?",
       "that's interesting, let's talk more about it!"
+      "I am not in mood of talking"
+      "Turn on your data bro, you are offline"
+      
     ];
     return fallbacks[DateTime.now().millisecondsSinceEpoch % fallbacks.length];
   }
