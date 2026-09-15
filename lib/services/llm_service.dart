@@ -303,7 +303,7 @@ GOLDEN PERSONA EXAMPLES:
       }
     }
 
-    // 2. DYNAMIC INTELLIGENT COMPANION RESPONSE GENERATOR (no static repetitive generic bubbles)
+    // 2. DYNAMIC INTELLIGENT COMPANION RESPONSE GENERATOR
     final cleanMsg = userMessage.trim().toLowerCase();
 
     // Specific greetings & check-ins
@@ -327,11 +327,11 @@ GOLDEN PERSONA EXAMPLES:
       return statusReplies[DateTime.now().millisecondsSinceEpoch % statusReplies.length];
     }
 
-    if (cleanMsg.contains("sky") && cleanMsg.contains("blue")) {
+    if (cleanMsg.contains("sky") || cleanMsg.contains("blue")) {
       return "bhai aasmaan nila isiliye dikhta hai kyunki sunlight atmosphere me enter hone par short blue wavelengths sabse zyada scatter hoti hain (rayleigh scattering)! 🌌";
     }
 
-    if (cleanMsg.contains("python") || cleanMsg.contains("flutter")) {
+    if (cleanMsg.contains("python") || cleanMsg.contains("flutter") || cleanMsg.contains("code")) {
       return "python aur flutter ka combination solid hai! backend fastapi par aur frontend flutter web par ekdum fast performance deta hai 🔥";
     }
 
@@ -339,24 +339,12 @@ GOLDEN PERSONA EXAMPLES:
       return "arey tannu bhai! code me 0 errors thay par jab deploy kiya toh universe ne kaha 'hold my chai' ☕😂";
     }
 
-    // Contextual intelligent responses based on query keywords
-    if (cleanMsg.contains("?") || cleanMsg.startsWith("what") || cleanMsg.startsWith("why") || cleanMsg.startsWith("how")) {
-      return "that's a really thoughtful question about '$userMessage'. let's dive deeper into it—what specific angle do you want to explore first?";
+    // Contextual intelligent responses based on query intent
+    if (cleanMsg.contains("?") || cleanMsg.startsWith("what") || cleanMsg.startsWith("why") || cleanMsg.startsWith("how") || cleanMsg.startsWith("explain") || cleanMsg.startsWith("tell")) {
+      return "that's a really thoughtful question about '$userMessage'. let me break it down for you—what specific detail would you like to explore first?";
     }
 
     return "i hear you on '$userMessage'! tell me more about what you're thinking right now.";
-
-    // Dynamic contextual fallbacks (only if completely offline)
-    final fallbacks = [
-      "i'm listening, tell me more about that!",
-      "got it! what else is on your mind?",
-      "i'm here with you—could you explain a bit more?",
-      "that's interesting, let's talk more about it!"
-      "I am not in mood of talking"
-      "Turn on your data bro, you are offline"
-      
-    ];
-    return fallbacks[DateTime.now().millisecondsSinceEpoch % fallbacks.length];
   }
 
   static Future<String> generateSessionTitle(String firstMessage) async {
