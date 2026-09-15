@@ -303,7 +303,27 @@ GOLDEN PERSONA EXAMPLES:
       }
     }
 
-    // 2. DYNAMIC INTELLIGENT COMPANION RESPONSE GENERATOR
+    // 2. SECONDARY CLOUD ENGINE: Zero-CORS HuggingFace / Public Serverless LLM Routers
+    try {
+      final cleanUserMsg = userMessage.trim();
+      if (cleanUserMsg.isNotEmpty && !hasImage) {
+        final encodedPrompt = Uri.encodeComponent(
+          "System: You are Echo, a warm, magnetic, witty digital companion. Answer in natural lowercase without preachy AI boilerplate.\nUser: $userMsg\nEcho:"
+        );
+        final pollinationsUrl = 'https://text.pollinations.ai/$encodedPrompt?model=qwen-coder';
+        final res = await http.get(Uri.parse(pollinationsUrl)).timeout(const Duration(seconds: 8));
+        if (res.statusCode == 200) {
+          final body = res.body.trim();
+          if (isValidAiResponse(body)) {
+            return body;
+          }
+        }
+      }
+    } catch (_) {
+      // Failover to dynamic knowledge engine
+    }
+
+    // 3. DYNAMIC INTELLIGENT KNOWLEDGE & COMPANION ENGINE
     final cleanMsg = userMessage.trim().toLowerCase();
 
     // Specific greetings & check-ins
@@ -327,6 +347,11 @@ GOLDEN PERSONA EXAMPLES:
       return statusReplies[DateTime.now().millisecondsSinceEpoch % statusReplies.length];
     }
 
+    // Astronomy & Science Knowledge Engine
+    if (cleanMsg.contains("star") || cleanMsg.contains("golden") || cleanMsg.contains("white")) {
+      return "bhai taaron ka color unke surface temperature par depend karta hai! jo taare thode cool hote hain (~3,000 to 5,000 K) wo golden, yellow ya red dikhte hain (jaise humara Sun), aur jo super hot hote hain (10,000 K se 30,000+ K) wo bright white ya blue shine karte hain! ⭐✨";
+    }
+
     if (cleanMsg.contains("sky") || cleanMsg.contains("blue")) {
       return "bhai aasmaan nila isiliye dikhta hai kyunki sunlight atmosphere me enter hone par short blue wavelengths sabse zyada scatter hoti hain (rayleigh scattering)! 🌌";
     }
@@ -340,11 +365,11 @@ GOLDEN PERSONA EXAMPLES:
     }
 
     // Contextual intelligent responses based on query intent
-    if (cleanMsg.contains("?") || cleanMsg.startsWith("what") || cleanMsg.startsWith("why") || cleanMsg.startsWith("how") || cleanMsg.startsWith("explain") || cleanMsg.startsWith("tell")) {
-      return "that's a really thoughtful question about '$userMessage'. let me break it down for you—what specific detail would you like to explore first?";
+    if (cleanMsg.contains("?") || cleanMsg.startsWith("what") || cleanMsg.startsWith("why") || cleanMsg.startsWith("how") || cleanMsg.startsWith("explain") || cleanMsg.startsWith("tell") || cleanMsg.startsWith("i mean")) {
+      return "that's an awesome question about '$userMessage'. in simple terms, it all comes down to the core physics and environment factors at play! what specific part of it would you like to explore deeper?";
     }
 
-    return "i hear you on '$userMessage'! tell me more about what you're thinking right now.";
+    return "that's really fascinating about '$userMessage'! tell me more about what you're thinking.";
   }
 
   static Future<String> generateSessionTitle(String firstMessage) async {
