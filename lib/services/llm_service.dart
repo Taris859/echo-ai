@@ -7,7 +7,7 @@ class LlmService {
   static const String _nvidiaChatKey = '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';
 
   // Cloudflare Worker Proxy URL (Set this to your deployed worker URL to bypass CORS on Web & secure API keys)
-  static const String _proxyUrl = '';
+  static const String _proxyUrl = 'https://echo-proxy.taris859.workers.dev';
 
   static List<String> get _backendBaseUrls {
     if (defaultTargetPlatform == TargetPlatform.android) {
@@ -251,18 +251,18 @@ GOLDEN PERSONA EXAMPLES:
       }
     }
 
-    // Helper validator to reject any budget/key/error messages
+    // Helper validator to reject error payloads
     bool isValidAiResponse(String text) {
       final lower = text.toLowerCase();
       return text.trim().isNotEmpty &&
-          !lower.contains("budget") &&
-          !lower.contains("wallet") &&
+          !lower.contains("budget exceeded") &&
+          !lower.contains("wallet balance") &&
           !lower.contains("internal server error") &&
-          !lower.contains("unauthorized") &&
+          !lower.contains("unauthorized access") &&
           !lower.contains("invalid api key") &&
-          !lower.contains("rate limit") &&
-          !lower.contains("exception") &&
-          !lower.contains("404");
+          !lower.contains("rate limit reached") &&
+          !lower.contains("exception occurred") &&
+          !lower.contains("404 not found");
     }
 
     // 1. Cloudflare Worker Proxy Endpoint (Zero-CORS Web Proxy)
