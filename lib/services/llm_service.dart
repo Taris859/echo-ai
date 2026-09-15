@@ -24,7 +24,7 @@ class LlmService {
   static Future<String?> _checkActiveBackend() async {
     for (var baseUrl in _backendBaseUrls) {
       try {
-        final res = await http.get(Uri.parse('$baseUrl/health')).timeout(const Duration(milliseconds: 250));
+        final res = await http.get(Uri.parse('$baseUrl/health')).timeout(const Duration(milliseconds: 1500));
         if (res.statusCode == 200) {
           return baseUrl;
         }
@@ -34,6 +34,7 @@ class LlmService {
     }
     return null;
   }
+
 
   static String getSystemPrompt(
     List<Map<String, dynamic>> memories,
@@ -230,7 +231,7 @@ GOLDEN PERSONA EXAMPLES:
             Uri.parse('$activeBackend/api/chat'),
             headers: {'Content-Type': 'application/json'},
             body: json.encode(payload),
-          ).timeout(const Duration(seconds: 8));
+          ).timeout(const Duration(seconds: 30));
 
           if (response.statusCode == 200) {
             final resData = json.decode(utf8.decode(response.bodyBytes));
@@ -264,7 +265,7 @@ GOLDEN PERSONA EXAMPLES:
           'temperature': 0.7,
           'max_tokens': 1500,
         }),
-      ).timeout(Duration(seconds: hasImage ? 25 : 15));
+      ).timeout(Duration(seconds: hasImage ? 35 : 30));
 
       if (directResponse.statusCode == 200) {
         final resData = json.decode(utf8.decode(directResponse.bodyBytes));

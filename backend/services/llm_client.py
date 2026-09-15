@@ -1,9 +1,14 @@
 import os
 import requests
 import json
+from dotenv import load_dotenv
+
+env_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), ".env")
+load_dotenv(dotenv_path=env_path)
 
 class LLMClient:
     def __init__(self, vector_store, research_engine):
+        load_dotenv(dotenv_path=env_path)
         self.vector_store = vector_store
         self.research_engine = research_engine
         self.chat_key = os.getenv("NVIDIA_CHAT_KEY", "")
@@ -100,11 +105,12 @@ GOLDEN PERSONA EXAMPLES:
         confidence_score = 95 # Base confidence score
 
         if needs_search:
-            search_results = self.research_engine.search_web(user_message)
-            source_text = "\n".join([f"Source: {r['url']}\nSnippet: {r['snippet']}" for r in search_results])
+            search_results = self.research_engine.search_web(user_message)[:5]
+            source_text = "\n".join([f"Source: {r['url']}\nSnippet: {r['snippet'][:300]}" for r in search_results])
 
         # If offline/no API key, fallback immediately
-        if not self.chat_key:
+        chat_key = os.getenv("NVIDIA_CHAT_KEY") or self.chat_key
+        if not chat_key:
             return self.get_offline_fallback(user_message, recalled), recalled, search_results, confidence_score
 
         # Prepare messages
@@ -129,17 +135,18 @@ GOLDEN PERSONA EXAMPLES:
         messages.append({"role": "user", "content": user_content})
 
         headers = {
-            "Authorization": f"Bearer {self.chat_key}",
+            "Authorization": f"Bearer {chat_key}",
             "Content-Type": "application/json"
         }
         payload = {
             "model": "meta/llama-3.2-11b-vision-instruct",
             "messages": messages,
-            "temperature": 0.7
+            "temperature": 0.7,
+            "max_tokens": 1000
         }
 
         try:
-            response = requests.post(self.llm_url, json=payload, headers=headers, timeout=10)
+            response = requests.post(self.llm_url, json=payload, headers=headers, timeout=30)
             if response.status_code == 200:
                 draft_response = response.json()["choices"][0]["message"]["content"]
                 

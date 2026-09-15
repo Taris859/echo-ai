@@ -32,30 +32,54 @@ class ResearchEngine:
 
         # Fallback to free DuckDuckGo HTML parser
         headers = {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+            "Content-Type": "application/x-www-form-urlencoded"
         }
-        encoded_query = urllib.parse.quote(query)
         try:
-            response = requests.get(f"{self.duckduckgo_url}{encoded_query}", headers=headers)
+            response = requests.post("https://html.duckduckgo.com/html/", data={"q": query}, headers=headers, timeout=10)
             if response.status_code == 200:
                 html = response.text
-                # Simple regex extraction of titles, snippets and URLs from DuckDuckGo HTML page
-                # In DuckDuckGo HTML, results are inside <td class="result-snippet"> or search result links
-                links = re.findall(r'<a class="result__url" href="([^"]+)"', html)
-                snippets = re.findall(r'<a class="result__snippet"[^>]*>(.*?)</a>', html, re.DOTALL)
-                titles = re.findall(r'<a class="result__link"[^>]*>(.*?)</a>', html, re.DOTALL)
-                
                 results = []
-                for i in range(min(5, len(links), len(snippets))):
-                    clean_snippet = re.sub(r'<[^>]+>', '', snippets[i]).strip()
-                    clean_title = re.sub(r'<[^>]+>', '', titles[i]).strip()
-                    results.append({
-                        "title": clean_title,
-                        "url": links[i],
-                        "snippet": clean_snippet
-                    })
+                try:
+                    from bs4 import BeautifulSoup
+                    soup = BeautifulSoup(html, 'html.parser')
+                    items = soup.find_all('div', class_='result__body')
+                    for item in items[:10]:
+                        title_tag = item.find('a', class_='result__a')
+                        if not title_tag:
+                            continue
+                        raw_url = title_tag.get('href', '')
+                        if 'uddg=' in raw_url:
+                            url = urllib.parse.unquote(raw_url.split('uddg=')[1].split('&')[0])
+                        else:
+                            url = raw_url
+                        snippet_tag = item.find('a', class_='result__snippet')
+                        snippet = snippet_tag.get_text(strip=True) if snippet_tag else ""
+                        results.append({
+                            "title": title_tag.get_text(strip=True),
+                            "url": url,
+                            "snippet": snippet
+                        })
+                except Exception as parse_e:
+                    # Fallback regex parsing if bs4 is unavailable or fails
+                    raw_matches = re.findall(r'<a class="result__a"[^>]*href="([^"]+)"[^>]*>(.*?)</a>', html, re.DOTALL)
+                    snippets = re.findall(r'<a class="result__snippet"[^>]*>(.*?)</a>', html, re.DOTALL)
+                    for i in range(min(10, len(raw_matches))):
+                        raw_url, title_html = raw_matches[i]
+                        if 'uddg=' in raw_url:
+                            url = urllib.parse.unquote(raw_url.split('uddg=')[1].split('&')[0])
+                        else:
+                            url = raw_url
+                        clean_title = re.sub(r'<[^>]+>', '', title_html).strip()
+                        clean_snippet = re.sub(r'<[^>]+>', '', snippets[i]).strip() if i < len(snippets) else ""
+                        results.append({
+                            "title": clean_title,
+                            "url": url,
+                            "snippet": clean_snippet
+                        })
                 return results
         except Exception as e:
             print(f"DuckDuckGo search fallback failed: {e}")
 
         return []
+

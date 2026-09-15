@@ -62,3 +62,8 @@ firebase_options.dart
 *.jks
 *.keystore
 
+# Heap Dumps and Build Markers
+*.hprof
+.last_build_id
+
+

@@ -13,7 +13,8 @@ import firebase_admin
 from firebase_admin import credentials, auth
 
 # Load env variables (NVIDIA_API_KEY, TAVILY_API_KEY, SUPABASE_URL, etc.)
-load_dotenv()
+env_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env")
+load_dotenv(dotenv_path=env_path)
 
 from services.cloud_db import CloudDB
 from services.vector_store import VectorStore
@@ -253,7 +254,7 @@ def api_extract_memory_proxy(req: APIExtractMemoryRequest):
         "response_format": {"type": "json_object"}
     }
     try:
-        res = requests.post("https://integrate.api.nvidia.com/v1/chat/completions", json=payload, headers=headers, timeout=10)
+        res = requests.post("https://integrate.api.nvidia.com/v1/chat/completions", json=payload, headers=headers, timeout=25)
         if res.status_code == 200:
             content = res.json()["choices"][0]["message"]["content"]
             cleaned = content.strip()

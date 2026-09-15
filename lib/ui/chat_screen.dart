@@ -1232,7 +1232,7 @@ class _ChatScreenState extends State<ChatScreen> {
     );
   }
 
-  @override
+  @override 
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: _bgColor,
