@@ -336,7 +336,7 @@ GOLDEN PERSONA EXAMPLES:
           'method': 'complete',
           'args': {
             'messages': messages,
-            'model': 'gpt-4o-mini',
+            'model': 'meta-llama/llama-3.2-11b-vision-instruct',
             'stream': false,
           }
         }),
