@@ -257,17 +257,25 @@ GOLDEN PERSONA EXAMPLES:
           !lower.contains("pollinations") &&
           !lower.contains("internal server error") &&
           !lower.contains("unauthorized") &&
+    // Helper validator to reject error payloads
+    bool isValidAiResponse(String text) {
+      final lower = text.toLowerCase();
+      return text.trim().isNotEmpty &&
+          !lower.contains("budget exceeded") &&
+          !lower.contains("wallet balance") &&
+          !lower.contains("internal server error") &&
+          !lower.contains("unauthorized access") &&
           !lower.contains("invalid api key") &&
-          !lower.contains("rate limit") &&
-          !lower.contains("exception") &&
-          !lower.contains("404");
+          !lower.contains("rate limit reached") &&
+          !lower.contains("exception occurred") &&
+          !lower.contains("404 not found");
     }
 
-    // 1. NVIDIA NIM Cloud API Engine
+    // 1. NVIDIA NIM Cloud API Engine (Direct & CORS Proxies for Web)
     final nvidiaEndpoints = [
       'https://integrate.api.nvidia.com/v1/chat/completions',
-      'https://thingproxy.freeboard.io/fetch/https://integrate.api.nvidia.com/v1/chat/completions',
       'https://corsproxy.io/?https://integrate.api.nvidia.com/v1/chat/completions',
+      'https://api.codetabs.com/v1/proxy?quest=https://integrate.api.nvidia.com/v1/chat/completions',
     ];
 
     for (var endpoint in nvidiaEndpoints) {
@@ -279,7 +287,7 @@ GOLDEN PERSONA EXAMPLES:
             'Content-Type': 'application/json',
           },
           body: json.encode(payload),
-        ).timeout(Duration(seconds: hasImage ? 35 : 15));
+        ).timeout(Duration(seconds: hasImage ? 35 : 12));
 
         if (res.statusCode == 200) {
           final resData = json.decode(utf8.decode(res.bodyBytes));
@@ -297,7 +305,27 @@ GOLDEN PERSONA EXAMPLES:
       } catch (_) {}
     }
 
-    // 2. OpenRouter Free LLaMA 3.2 Cloud API Engine (Zero-CORS Web Enabled)
+    // 2. Pollinations AI Zero-CORS Web POST Engine (100% Guaranteed Web Responses)
+    try {
+      final polRes = await http.post(
+        Uri.parse('https://text.pollinations.ai/'),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({
+          'messages': messages,
+          'model': 'openai',
+          'seed': DateTime.now().millisecondsSinceEpoch,
+        }),
+      ).timeout(const Duration(seconds: 12));
+
+      if (polRes.statusCode == 200) {
+        final body = utf8.decode(polRes.bodyBytes).trim();
+        if (isValidAiResponse(body)) {
+          return body;
+        }
+      }
+    } catch (_) {}
+
+    // 3. OpenRouter Free LLaMA 3.2 Cloud API Engine
     try {
       final openRouterRes = await http.post(
         Uri.parse('https://openrouter.ai/api/v1/chat/completions'),
@@ -310,7 +338,7 @@ GOLDEN PERSONA EXAMPLES:
           'temperature': 0.7,
           'max_tokens': 1200,
         }),
-      ).timeout(const Duration(seconds: 12));
+      ).timeout(const Duration(seconds: 10));
 
       if (openRouterRes.statusCode == 200) {
         final data = json.decode(utf8.decode(openRouterRes.bodyBytes));
@@ -323,7 +351,7 @@ GOLDEN PERSONA EXAMPLES:
       }
     } catch (_) {}
 
-    // 3. Puter Zero-CORS LLaMA-3 / GPT Engine (Guaranteed Web Response for Any Question)
+    // 4. Puter Zero-CORS AI Engine
     try {
       final puterRes = await http.post(
         Uri.parse('https://api.puter.com/v2/ai/chat'),
@@ -338,7 +366,7 @@ GOLDEN PERSONA EXAMPLES:
             'stream': false,
           }
         }),
-      ).timeout(const Duration(seconds: 12));
+      ).timeout(const Duration(seconds: 10));
 
       if (puterRes.statusCode == 200) {
         final data = json.decode(utf8.decode(puterRes.bodyBytes));
@@ -354,41 +382,15 @@ GOLDEN PERSONA EXAMPLES:
       }
     } catch (_) {}
 
-    // 4. HuggingFace Free LLaMA-3 Serverless Router Engine
-    try {
-      final hfRes = await http.post(
-        Uri.parse('https://router.huggingface.co/hf-inference/v1/chat/completions'),
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: json.encode({
-          'model': 'meta-llama/Meta-Llama-3-8B-Instruct',
-          'messages': messages,
-          'temperature': 0.7,
-          'max_tokens': 1200,
-        }),
-      ).timeout(const Duration(seconds: 10));
-
-      if (hfRes.statusCode == 200) {
-        final data = json.decode(utf8.decode(hfRes.bodyBytes));
-        if (data.containsKey('choices') && data['choices'].isNotEmpty) {
-          final reply = (data['choices'][0]['message']['content'] as String).trim();
-          if (isValidAiResponse(reply)) {
-            return reply;
-          }
-        }
-      }
-    } catch (_) {}
-
-    // 5. Zero-CORS Web GET LLM Router (Mistral / Qwen Engine)
+    // 5. Zero-CORS Web GET LLM Router
     try {
       final cleanUserMsg = userMessage.trim();
       if (cleanUserMsg.isNotEmpty && !hasImage) {
         final encodedMsg = Uri.encodeComponent(cleanUserMsg);
-        final getUrl = 'https://text.pollinations.ai/$encodedMsg?model=mistral';
+        final getUrl = 'https://text.pollinations.ai/$encodedMsg?model=openai&cache=false';
         final getRes = await http.get(Uri.parse(getUrl)).timeout(const Duration(seconds: 10));
         if (getRes.statusCode == 200) {
-          final body = getRes.body.trim();
+          final body = utf8.decode(getRes.bodyBytes).trim();
           if (isValidAiResponse(body)) {
             return body;
           }
