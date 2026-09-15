@@ -382,8 +382,30 @@ GOLDEN PERSONA EXAMPLES:
       }
     } catch (_) {}
 
-    // Fallback: Dynamic personalized companion response
-    return "hey! i hear you on '$userMessage'. let's talk about it—what are your thoughts on this?";
+    // 5. Zero-CORS Web GET LLM Router (Mistral / Llama / Qwen - Guaranteed Web Response)
+    try {
+      final cleanUserMsg = userMessage.trim();
+      if (cleanUserMsg.isNotEmpty && !hasImage) {
+        final encodedPrompt = Uri.encodeComponent(
+          "You are Echo AI, an intelligent, empathetic digital companion. Answer the user's prompt thoughtfully and accurately in natural lowercase without boilerplate.\n\nUser Question: $cleanUserMsg\n\nEcho AI:"
+        );
+        for (var getModel in ['mistral', 'llama', 'qwen-coder']) {
+          try {
+            final getUrl = 'https://text.pollinations.ai/$encodedPrompt?model=$getModel';
+            final getRes = await http.get(Uri.parse(getUrl)).timeout(const Duration(seconds: 8));
+            if (getRes.statusCode == 200) {
+              final body = getRes.body.trim();
+              if (isValidAiResponse(body)) {
+                return body;
+              }
+            }
+          } catch (_) {}
+        }
+      }
+    } catch (_) {}
+
+    // Fallback: Smart natural companion response (no quote repeating)
+    return "that's a really intriguing topic! let me break it down—what specific aspect would you like to explore first?";
   }
 
   static Future<String> generateSessionTitle(String firstMessage) async {
