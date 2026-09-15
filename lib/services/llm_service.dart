@@ -280,6 +280,7 @@ GOLDEN PERSONA EXAMPLES:
 
     for (var endpoint in nvidiaEndpoints) {
       try {
+        print("NVIDIA NIM Attempting endpoint: $endpoint");
         final res = await http.post(
           Uri.parse(endpoint),
           headers: {
@@ -289,6 +290,7 @@ GOLDEN PERSONA EXAMPLES:
           body: json.encode(payload),
         ).timeout(Duration(seconds: hasImage ? 35 : 12));
 
+        print("NVIDIA NIM [$endpoint] Status Code: ${res.statusCode}");
         if (res.statusCode == 200) {
           final resData = json.decode(utf8.decode(res.bodyBytes));
           if (resData.containsKey('choices') && resData['choices'].isNotEmpty) {
@@ -301,12 +303,17 @@ GOLDEN PERSONA EXAMPLES:
               return reply;
             }
           }
+        } else {
+          print("NVIDIA NIM [$endpoint] Error Body: ${res.body}");
         }
-      } catch (_) {}
+      } catch (e) {
+        print("NVIDIA NIM [$endpoint] Exception: $e");
+      }
     }
 
-    // 2. Pollinations AI Zero-CORS Web POST Engine (100% Guaranteed Web Responses)
+    // 2. Pollinations AI Zero-CORS Web POST Engine
     try {
+      print("Pollinations POST Engine Attempting...");
       final polRes = await http.post(
         Uri.parse('https://text.pollinations.ai/'),
         headers: {'Content-Type': 'application/json'},
@@ -317,16 +324,22 @@ GOLDEN PERSONA EXAMPLES:
         }),
       ).timeout(const Duration(seconds: 12));
 
+      print("Pollinations POST Status Code: ${polRes.statusCode}");
       if (polRes.statusCode == 200) {
         final body = utf8.decode(polRes.bodyBytes).trim();
         if (isValidAiResponse(body)) {
           return body;
         }
+      } else {
+        print("Pollinations POST Error Body: ${polRes.body}");
       }
-    } catch (_) {}
+    } catch (e) {
+      print("Pollinations POST Exception: $e");
+    }
 
     // 3. OpenRouter Free LLaMA 3.2 Cloud API Engine
     try {
+      print("OpenRouter Engine Attempting...");
       final openRouterRes = await http.post(
         Uri.parse('https://openrouter.ai/api/v1/chat/completions'),
         headers: {
@@ -340,6 +353,7 @@ GOLDEN PERSONA EXAMPLES:
         }),
       ).timeout(const Duration(seconds: 10));
 
+      print("OpenRouter Status Code: ${openRouterRes.statusCode}");
       if (openRouterRes.statusCode == 200) {
         final data = json.decode(utf8.decode(openRouterRes.bodyBytes));
         if (data.containsKey('choices') && data['choices'].isNotEmpty) {
@@ -348,11 +362,16 @@ GOLDEN PERSONA EXAMPLES:
             return reply;
           }
         }
+      } else {
+        print("OpenRouter Error Body: ${openRouterRes.body}");
       }
-    } catch (_) {}
+    } catch (e) {
+      print("OpenRouter Exception: $e");
+    }
 
     // 4. Puter Zero-CORS AI Engine
     try {
+      print("Puter Engine Attempting...");
       final puterRes = await http.post(
         Uri.parse('https://api.puter.com/v2/ai/chat'),
         headers: {'Content-Type': 'application/json'},
@@ -368,6 +387,7 @@ GOLDEN PERSONA EXAMPLES:
         }),
       ).timeout(const Duration(seconds: 10));
 
+      print("Puter Status Code: ${puterRes.statusCode}");
       if (puterRes.statusCode == 200) {
         final data = json.decode(utf8.decode(puterRes.bodyBytes));
         String? replyText;
@@ -379,24 +399,34 @@ GOLDEN PERSONA EXAMPLES:
         if (replyText != null && isValidAiResponse(replyText)) {
           return replyText.trim();
         }
+      } else {
+        print("Puter Error Body: ${puterRes.body}");
       }
-    } catch (_) {}
+    } catch (e) {
+      print("Puter Exception: $e");
+    }
 
     // 5. Zero-CORS Web GET LLM Router
     try {
       final cleanUserMsg = userMessage.trim();
       if (cleanUserMsg.isNotEmpty && !hasImage) {
+        print("Pollinations GET Engine Attempting...");
         final encodedMsg = Uri.encodeComponent(cleanUserMsg);
         final getUrl = 'https://text.pollinations.ai/$encodedMsg?model=openai&cache=false';
         final getRes = await http.get(Uri.parse(getUrl)).timeout(const Duration(seconds: 10));
+        print("Pollinations GET Status Code: ${getRes.statusCode}");
         if (getRes.statusCode == 200) {
           final body = utf8.decode(getRes.bodyBytes).trim();
           if (isValidAiResponse(body)) {
             return body;
           }
+        } else {
+          print("Pollinations GET Error Body: ${getRes.body}");
         }
       }
-    } catch (_) {}
+    } catch (e) {
+      print("Pollinations GET Exception: $e");
+    }
 
     // No hardcoded pre-written answers. If all cloud AI engines fail, report real connection status.
     return "Connection Error: Unable to reach AI Cloud Server (NVIDIA NIM / OpenRouter / Mistral). Please check network or CORS proxy.";
