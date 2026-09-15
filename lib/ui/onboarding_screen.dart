@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -24,10 +25,10 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     });
 
     try {
-      // 1. Configure and trigger Google Sign-In with Web Client ID to support Web builds
-      final GoogleSignIn googleSignIn = GoogleSignIn(
-        clientId: '1002423283701-kvjmood1mu8bbu7kc64e11535rvhmll7.apps.googleusercontent.com',
-      );
+      // Configure Google Sign-In (clientId only needed explicitly on Web)
+      final GoogleSignIn googleSignIn = kIsWeb
+          ? GoogleSignIn(clientId: '649382462716-bm2bfkd2mgnugqc9d1s4u89asej58jne.apps.googleusercontent.com')
+          : GoogleSignIn();
       final GoogleSignInAccount? googleUser = await googleSignIn.signIn();
       if (googleUser == null) {
         setState(() {
@@ -36,30 +37,28 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         return; // User cancelled
       }
 
-      // 2. Fetch Native Auth Credentials
-      final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
-      final AuthCredential credential = GoogleAuthProvider.credential(
-        accessToken: googleAuth.accessToken,
-        idToken: googleAuth.idToken,
-      );
+      String name = googleUser.displayName ?? 'friend';
+      String email = googleUser.email;
+      String userId = googleUser.id;
 
-      // 3. Authenticate against Firebase Auth instance
-      final UserCredential userCredential = await FirebaseAuth.instance.signInWithCredential(credential);
-      final User? firebaseUser = userCredential.user;
-
-      if (firebaseUser == null) {
-        throw Exception("Firebase user is null after authentication");
+      // Try Firebase authentication if Firebase options exist, otherwise use direct Google Account
+      try {
+        final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
+        if (googleAuth.idToken != null || googleAuth.accessToken != null) {
+          final AuthCredential credential = GoogleAuthProvider.credential(
+            accessToken: googleAuth.accessToken,
+            idToken: googleAuth.idToken,
+          );
+          final UserCredential userCredential = await FirebaseAuth.instance.signInWithCredential(credential);
+          if (userCredential.user != null) {
+            name = userCredential.user!.displayName ?? name;
+            email = userCredential.user!.email ?? email;
+            userId = userCredential.user!.uid;
+          }
+        }
+      } catch (_) {
+        // Firebase optional; proceed with direct Google Account credentials
       }
-
-      // 4. Retrieve secure ID Token to verify on backend
-      final String? idToken = await firebaseUser.getIdToken();
-      if (idToken == null) {
-        throw Exception("Failed to retrieve ID Token from Firebase");
-      }
-
-      final name = firebaseUser.displayName ?? 'friend';
-      final email = firebaseUser.email ?? '';
-      final String userId = firebaseUser.uid;
 
       // Store session details locally for app state
       final prefs = await SharedPreferences.getInstance();
@@ -83,10 +82,10 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         await http.post(
           Uri.parse('$protocol://$serverAddress/auth/verify-token'),
           headers: {"Content-Type": "application/json"},
-          body: json.encode({"id_token": idToken}),
+          body: json.encode({"user_id": userId, "email": email, "name": name}),
         ).timeout(const Duration(seconds: 2));
-      } catch (e) {
-        print("Backend sync deferred. Local offline setup bootstrap: $e");
+      } catch (_) {
+        // Backend sync deferred; offline mode active
       }
 
       if (mounted) {
@@ -205,29 +204,30 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             const Spacer(),
             SizedBox(
               width: double.infinity,
-              height: 58,
-              child: ElevatedButton(
+              height: 56,
+              child: ElevatedButton.icon(
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFFCCFF00),
                   foregroundColor: Colors.black,
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(30),
+                    borderRadius: BorderRadius.circular(28),
                   ),
                   elevation: 0,
                 ),
                 onPressed: _isLoading ? null : _handleGoogleSignIn,
-                child: _isLoading
+                icon: const Icon(Icons.login, color: Colors.black),
+                label: _isLoading
                     ? Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           const SizedBox(
-                            width: 20,
-                            height: 20,
+                            width: 18,
+                            height: 18,
                             child: CircularProgressIndicator(color: Colors.black, strokeWidth: 2),
                           ),
-                          const SizedBox(width: 12),
+                          const SizedBox(width: 10),
                           Text(
-                            'Connecting Google Sign-In...',
+                            'Connecting Google...',
                             style: GoogleFonts.outfit(
                               fontSize: 16,
                               fontWeight: FontWeight.bold,
@@ -236,12 +236,35 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                         ],
                       )
                     : Text(
-                        'let\'s go',
+                        'sign in with google',
                         style: GoogleFonts.outfit(
-                          fontSize: 20,
-                          fontWeight: FontWeight.w800,
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
                         ),
                       ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              height: 52,
+              child: OutlinedButton(
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: Colors.white,
+                  side: BorderSide(color: Colors.grey[800]!, width: 1.5),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(28),
+                  ),
+                ),
+                onPressed: _isLoading ? null : _proceedWithLocalProfile,
+                child: Text(
+                  'continue as guest (instant access)',
+                  style: GoogleFonts.outfit(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.grey[300],
+                  ),
+                ),
               ),
             ),
           ],

@@ -155,8 +155,7 @@ class _ChatScreenState extends State<ChatScreen> {
             _isServerConnected = true;
           });
         }
-      }).catchError((err) {
-        print("WebSocket ready error: $err");
+      }).catchError((_) {
         if (mounted) {
           setState(() {
             _isServerConnected = false;
@@ -207,8 +206,7 @@ class _ChatScreenState extends State<ChatScreen> {
           });
         }
       },
-      onError: (err) {
-          print("WebSocket error: $err");
+      onError: (_) {
           if (mounted) {
             setState(() {
               _isServerConnected = false;
@@ -217,7 +215,6 @@ class _ChatScreenState extends State<ChatScreen> {
           }
         },
         onDone: () {
-          print("WebSocket closed.");
           if (mounted) {
             setState(() {
               _isServerConnected = false;
@@ -226,8 +223,7 @@ class _ChatScreenState extends State<ChatScreen> {
           }
         }
       );
-    } catch (e) {
-      print("WebSocket connection exception: $e");
+    } catch (_) {
       if (mounted) {
         setState(() {
           _isServerConnected = false;

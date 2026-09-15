@@ -1,17 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:firebase_core/firebase_core.dart';
-import 'firebase_options.dart';
 import 'ui/splash_screen.dart';
+
+import 'package:flutter/foundation.dart' show kIsWeb;
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   try {
-    await Firebase.initializeApp(
-      options: DefaultFirebaseOptions.currentPlatform,
-    );
+    if (!kIsWeb) {
+      await Firebase.initializeApp();
+    }
   } catch (e) {
-    print("Firebase init failed: $e");
+    // Firebase optional for local offline setup
   }
   runApp(const EchoApp());
 }
@@ -31,7 +32,6 @@ class EchoApp extends StatelessWidget {
         colorScheme: const ColorScheme.dark(
           primary: Color(0xFFCCFF00), // Acid-Lime
           secondary: Color(0xFFB026FF), // Neon Purple
-          background: Colors.black,
           surface: Color(0xFF0F0F0F),
         ),
         textTheme: GoogleFonts.outfitTextTheme(

@@ -249,13 +249,33 @@ GOLDEN PERSONA EXAMPLES:
       }
     }
 
-    // Direct Cloud Call to NVIDIA NIM Engine with Web CORS Fallbacks
+    // 1. Ultra-fast Zero-CORS Web Engine (Pollinations GET - guaranteed response on Netlify & Web)
+    try {
+      final cleanUserMsg = userMessage.trim();
+      if (cleanUserMsg.isNotEmpty && !hasImage) {
+        final encodedMsg = Uri.encodeComponent(cleanUserMsg);
+        final encodedSystem = Uri.encodeComponent(
+          "you are echo, a warm, magnetic, witty digital companion. reply in natural lowercase, zero preachy ai boilerplate. answer the user directly and engagingly."
+        );
+        final getUrl = 'https://text.pollinations.ai/$encodedMsg?system=$encodedSystem&model=openai';
+        
+        final getRes = await http.get(Uri.parse(getUrl)).timeout(const Duration(seconds: 8));
+        if (getRes.statusCode == 200 && getRes.body.trim().isNotEmpty) {
+          final text = getRes.body.trim();
+          if (!text.contains("Internal Server Error") && text.length > 1) {
+            return text;
+          }
+        }
+      }
+    } catch (_) {
+      // Failover to POST engines
+    }
+
+    // 2. Direct Cloud Call to NVIDIA NIM Engine with Web CORS Fallbacks
     final cloudEndpoints = [
       'https://echo-ai.vercel.app/api/chat',
       'https://echo-ai-backend.onrender.com/api/chat',
       'https://integrate.api.nvidia.com/v1/chat/completions',
-      'https://corsproxy.io/?https://integrate.api.nvidia.com/v1/chat/completions',
-      'https://api.allorigins.win/raw?url=https://integrate.api.nvidia.com/v1/chat/completions',
     ];
 
     for (var endpoint in cloudEndpoints) {
@@ -272,7 +292,7 @@ GOLDEN PERSONA EXAMPLES:
             'temperature': 0.7,
             'max_tokens': 1500,
           }),
-        ).timeout(Duration(seconds: hasImage ? 35 : 30));
+        ).timeout(Duration(seconds: hasImage ? 35 : 12));
 
         if (directResponse.statusCode == 200) {
           final resData = json.decode(utf8.decode(directResponse.bodyBytes));
@@ -282,15 +302,39 @@ GOLDEN PERSONA EXAMPLES:
               return reply.trim();
             }
           }
-        } else {
-          print("NVIDIA NIM API endpoint ($endpoint) error ${directResponse.statusCode}: ${directResponse.body}");
         }
-      } catch (e) {
-        print("NVIDIA NIM API endpoint ($endpoint) exception: $e");
+      } catch (_) {
+        // Silent failover to next endpoint
       }
     }
 
-    // Dynamic contextual fallbacks (no static repetitive greetings)
+    // 3. Pollinations JSON POST Engine
+    try {
+      final pollinationsRes = await http.post(
+        Uri.parse('https://text.pollinations.ai/'),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({
+          'messages': [
+            {'role': 'system', 'content': systemPrompt},
+            ...history.map((m) => {'role': m['role'] ?? 'user', 'content': m['content'] ?? ''}),
+            {'role': 'user', 'content': userMessage}
+          ],
+          'model': 'openai',
+          'jsonMode': false,
+        }),
+      ).timeout(const Duration(seconds: 12));
+
+      if (pollinationsRes.statusCode == 200 && pollinationsRes.body.trim().isNotEmpty) {
+        final bodyText = pollinationsRes.body.trim();
+        if (!bodyText.contains("Internal Server Error")) {
+          return bodyText;
+        }
+      }
+    } catch (_) {
+      // Offline fallback
+    }
+
+    // Dynamic contextual fallbacks (only if completely offline)
     final fallbacks = [
       "i'm listening, tell me more about that!",
       "got it! what else is on your mind?",
