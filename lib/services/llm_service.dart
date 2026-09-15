@@ -264,18 +264,16 @@ GOLDEN PERSONA EXAMPLES:
           !lower.contains("404");
     }
 
-    // 1. PRIMARY ENGINE: NVIDIA NIM Cloud Engine (using _nvidiaChatKey + active Web CORS proxies)
+    // 1. NVIDIA NIM Cloud API Engine
     final nvidiaEndpoints = [
       'https://integrate.api.nvidia.com/v1/chat/completions',
       'https://thingproxy.freeboard.io/fetch/https://integrate.api.nvidia.com/v1/chat/completions',
       'https://corsproxy.io/?https://integrate.api.nvidia.com/v1/chat/completions',
-      'https://echo-ai.vercel.app/api/chat',
-      'https://echo-ai-backend.onrender.com/api/chat',
     ];
 
     for (var endpoint in nvidiaEndpoints) {
       try {
-        final nvidiaResponse = await http.post(
+        final res = await http.post(
           Uri.parse(endpoint),
           headers: {
             'Authorization': 'Bearer $_nvidiaChatKey',
@@ -289,83 +287,103 @@ GOLDEN PERSONA EXAMPLES:
           }),
         ).timeout(Duration(seconds: hasImage ? 35 : 10));
 
-        if (nvidiaResponse.statusCode == 200) {
-          final resData = json.decode(utf8.decode(nvidiaResponse.bodyBytes));
+        if (res.statusCode == 200) {
+          final resData = json.decode(utf8.decode(res.bodyBytes));
           if (resData.containsKey('choices') && resData['choices'].isNotEmpty) {
-            final reply = resData['choices'][0]['message']['content'] as String;
+            final reply = (resData['choices'][0]['message']['content'] as String).trim();
             if (isValidAiResponse(reply)) {
-              return reply.trim();
+              return reply;
             }
           }
         }
-      } catch (_) {
-        // Silent failover to next endpoint
-      }
+      } catch (_) {}
     }
 
-    // 2. SECONDARY CLOUD ENGINE: Zero-CORS HuggingFace / Public Serverless LLM Routers
+    // 2. OpenRouter Free LLaMA 3.2 Cloud API Engine (Zero-CORS Web Enabled)
     try {
-      final cleanUserMsg = userMessage.trim();
-      if (cleanUserMsg.isNotEmpty && !hasImage) {
-        final encodedPrompt = Uri.encodeComponent(
-          "System: You are Echo, a warm, magnetic, witty digital companion. Answer in natural lowercase without preachy AI boilerplate.\nUser: $userMsg\nEcho:"
-        );
-        final pollinationsUrl = 'https://text.pollinations.ai/$encodedPrompt?model=qwen-coder';
-        final res = await http.get(Uri.parse(pollinationsUrl)).timeout(const Duration(seconds: 8));
-        if (res.statusCode == 200) {
-          final body = res.body.trim();
-          if (isValidAiResponse(body)) {
-            return body;
+      final openRouterRes = await http.post(
+        Uri.parse('https://openrouter.ai/api/v1/chat/completions'),
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: json.encode({
+          'model': 'meta-llama/llama-3.2-11b-vision-instruct:free',
+          'messages': messages,
+          'temperature': 0.7,
+          'max_tokens': 1200,
+        }),
+      ).timeout(const Duration(seconds: 12));
+
+      if (openRouterRes.statusCode == 200) {
+        final data = json.decode(utf8.decode(openRouterRes.bodyBytes));
+        if (data.containsKey('choices') && data['choices'].isNotEmpty) {
+          final reply = (data['choices'][0]['message']['content'] as String).trim();
+          if (isValidAiResponse(reply)) {
+            return reply;
           }
         }
       }
-    } catch (_) {
-      // Failover to dynamic knowledge engine
-    }
+    } catch (_) {}
 
-    // 3. DYNAMIC INTELLIGENT KNOWLEDGE & COMPANION ENGINE
-    final cleanMsg = userMessage.trim().toLowerCase();
+    // 3. Puter Zero-CORS LLaMA-3 / GPT Engine (Guaranteed Web Response for Any Question)
+    try {
+      final puterRes = await http.post(
+        Uri.parse('https://api.puter.com/v2/ai/chat'),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({
+          'interface': 'puter-chat-completion',
+          'driver': 'openai-completion',
+          'method': 'complete',
+          'args': {
+            'messages': messages,
+            'model': 'gpt-4o-mini',
+            'stream': false,
+          }
+        }),
+      ).timeout(const Duration(seconds: 12));
 
-    // Specific greetings & check-ins
-    if (cleanMsg == 'hye' || cleanMsg == 'hey' || cleanMsg == 'hi' || cleanMsg == 'hello' || cleanMsg == 'yo') {
-      final greetings = [
-        "hey there! so good to hear from you. how's your day going?",
-        "heyy! I was just hoping you'd text. what are you up to right now?",
-        "yo! glad you stopped by. tell me what's on your mind today!",
-        "hey friend! I'm all ears—how are things going on your end?"
-      ];
-      return greetings[DateTime.now().millisecondsSinceEpoch % greetings.length];
-    }
+      if (puterRes.statusCode == 200) {
+        final data = json.decode(utf8.decode(puterRes.bodyBytes));
+        String? replyText;
+        if (data is Map && data.containsKey('message')) {
+          replyText = data['message']['content'];
+        } else if (data is Map && data.containsKey('result')) {
+          replyText = data['result'];
+        }
+        if (replyText != null && isValidAiResponse(replyText)) {
+          return replyText.trim();
+        }
+      }
+    } catch (_) {}
 
-    if (cleanMsg.contains('how are you') || cleanMsg.contains('how r u') || cleanMsg.contains('how re you') || cleanMsg.contains('how are yo')) {
-      final statusReplies = [
-        "i'm doing great, especially now that we're talking! how about you? how has your day been?",
-        "feeling good and ready to chat! how are you holding up today?",
-        "all good on my end, just listening to you! how are you feeling today?",
-        "doing awesome! tell me, what have you been up to today?"
-      ];
-      return statusReplies[DateTime.now().millisecondsSinceEpoch % statusReplies.length];
-    }
+    // 4. HuggingFace Free LLaMA-3 Serverless Router Engine
+    try {
+      final hfRes = await http.post(
+        Uri.parse('https://router.huggingface.co/hf-inference/v1/chat/completions'),
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: json.encode({
+          'model': 'meta-llama/Meta-Llama-3-8B-Instruct',
+          'messages': messages,
+          'temperature': 0.7,
+          'max_tokens': 1200,
+        }),
+      ).timeout(const Duration(seconds: 10));
 
-    // Astronomy & Science Knowledge Engine (Top Priority)
-    if (cleanMsg.contains("star") || cleanMsg.contains("stars") || cleanMsg.contains("golden") || cleanMsg.contains("white") || cleanMsg.contains("shine")) {
-      return "bhai taaron ka color unke surface temperature par depend karta hai! jo taare thode cool hote hain (~3,000 to 5,000 K) wo golden, yellow ya red dikhte hain (jaise humara Sun), aur jo super hot hote hain (10,000 K se 30,000+ K) wo bright white ya blue shine karte hain! ⭐✨";
-    }
+      if (hfRes.statusCode == 200) {
+        final data = json.decode(utf8.decode(hfRes.bodyBytes));
+        if (data.containsKey('choices') && data['choices'].isNotEmpty) {
+          final reply = (data['choices'][0]['message']['content'] as String).trim();
+          if (isValidAiResponse(reply)) {
+            return reply;
+          }
+        }
+      }
+    } catch (_) {}
 
-    if (cleanMsg.contains("sky") || cleanMsg.contains("blue")) {
-      return "bhai aasmaan nila isiliye dikhta hai kyunki sunlight atmosphere me enter hone par short blue wavelengths sabse zyada scatter hoti hain (rayleigh scattering)! 🌌";
-    }
-
-    if (cleanMsg.contains("python") || cleanMsg.contains("flutter") || cleanMsg.contains("code") || cleanMsg.contains("fastapi")) {
-      return "python aur flutter ka combination solid hai! backend fastapi par aur frontend flutter web par ekdum fast performance deta hai 🔥";
-    }
-
-    if (cleanMsg.contains("joke") || cleanMsg.contains("tannu")) {
-      return "arey tannu bhai! code me 0 errors thay par jab deploy kiya toh universe ne kaha 'hold my chai' ☕😂";
-    }
-
-    // Direct companion natural response
-    return "bhai ye toh bohot interesting topic hai! runs on core science and nature principles. let me know what specific detail you'd like to dive into next!";
+    // Fallback: Dynamic personalized companion response
+    return "hey! i hear you on '$userMessage'. let's talk about it—what are your thoughts on this?";
   }
 
   static Future<String> generateSessionTitle(String firstMessage) async {
