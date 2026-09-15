@@ -251,33 +251,43 @@ GOLDEN PERSONA EXAMPLES:
       }
     }
 
-    // Direct Cloud Call to NVIDIA NIM Engine
-    try {
-      final directResponse = await http.post(
-        Uri.parse('https://integrate.api.nvidia.com/v1/chat/completions'),
-        headers: {
-          'Authorization': 'Bearer $_nvidiaChatKey',
-          'Content-Type': 'application/json',
-        },
-        body: json.encode({
-          'model': modelName,
-          'messages': messages,
-          'temperature': 0.7,
-          'max_tokens': 1500,
-        }),
-      ).timeout(Duration(seconds: hasImage ? 35 : 30));
+    // Direct Cloud Call to NVIDIA NIM Engine with Web CORS Fallbacks
+    final cloudEndpoints = [
+      'https://integrate.api.nvidia.com/v1/chat/completions',
+      'https://corsproxy.io/?https://integrate.api.nvidia.com/v1/chat/completions',
+      'https://api.allorigins.win/raw?url=https://integrate.api.nvidia.com/v1/chat/completions',
+    ];
 
-      if (directResponse.statusCode == 200) {
-        final resData = json.decode(utf8.decode(directResponse.bodyBytes));
-        final reply = resData['choices'][0]['message']['content'] as String;
-        if (reply.trim().isNotEmpty) {
-          return reply.trim();
+    for (var endpoint in cloudEndpoints) {
+      try {
+        final directResponse = await http.post(
+          Uri.parse(endpoint),
+          headers: {
+            'Authorization': 'Bearer $_nvidiaChatKey',
+            'Content-Type': 'application/json',
+          },
+          body: json.encode({
+            'model': modelName,
+            'messages': messages,
+            'temperature': 0.7,
+            'max_tokens': 1500,
+          }),
+        ).timeout(Duration(seconds: hasImage ? 35 : 30));
+
+        if (directResponse.statusCode == 200) {
+          final resData = json.decode(utf8.decode(directResponse.bodyBytes));
+          if (resData.containsKey('choices') && resData['choices'].isNotEmpty) {
+            final reply = resData['choices'][0]['message']['content'] as String;
+            if (reply.trim().isNotEmpty) {
+              return reply.trim();
+            }
+          }
+        } else {
+          print("NVIDIA NIM API endpoint ($endpoint) error ${directResponse.statusCode}: ${directResponse.body}");
         }
-      } else {
-        print("Direct NVIDIA NIM API error ${directResponse.statusCode}: ${directResponse.body}");
+      } catch (e) {
+        print("NVIDIA NIM API endpoint ($endpoint) exception: $e");
       }
-    } catch (e) {
-      print("Direct NVIDIA NIM API exception: $e");
     }
 
     // Dynamic contextual fallbacks (no static repetitive greetings)
