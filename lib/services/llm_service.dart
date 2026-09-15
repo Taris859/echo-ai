@@ -257,21 +257,12 @@ GOLDEN PERSONA EXAMPLES:
       return text.trim().isNotEmpty &&
           !lower.contains("budget") &&
           !lower.contains("wallet") &&
-          !lower.contains("pollinations") &&
           !lower.contains("internal server error") &&
           !lower.contains("unauthorized") &&
-    // Helper validator to reject error payloads
-    bool isValidAiResponse(String text) {
-      final lower = text.toLowerCase();
-      return text.trim().isNotEmpty &&
-          !lower.contains("budget exceeded") &&
-          !lower.contains("wallet balance") &&
-          !lower.contains("internal server error") &&
-          !lower.contains("unauthorized access") &&
           !lower.contains("invalid api key") &&
-          !lower.contains("rate limit reached") &&
-          !lower.contains("exception occurred") &&
-          !lower.contains("404 not found");
+          !lower.contains("rate limit") &&
+          !lower.contains("exception") &&
+          !lower.contains("404");
     }
 
     // 1. Cloudflare Worker Proxy Endpoint (Zero-CORS Web Proxy)
