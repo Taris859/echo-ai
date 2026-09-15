@@ -4,7 +4,7 @@ import 'package:http/http.dart' as http;
 import 'package:flutter/foundation.dart' show defaultTargetPlatform, TargetPlatform;
 
 class LlmService {
-  static const String _nvidiaChatKey = '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';
+  static const String _nvidiaChatKey = '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';
 
   static List<String> get _backendBaseUrls {
     if (defaultTargetPlatform == TargetPlatform.android) {
@@ -211,14 +211,21 @@ GOLDEN PERSONA EXAMPLES:
 
     messages.add({'role': 'user', 'content': userContent});
 
-    const modelName = 'meta/llama-3.2-11b-vision-instruct';
+    final modelName = hasImage ? 'meta/llama-3.2-11b-vision-instruct' : 'deepseek-ai/deepseek-v4-flash-0731';
 
-    final payload = {
+    final Map<String, dynamic> payload = {
       'model': modelName,
       'messages': messages,
       'temperature': 0.7,
-      'max_tokens': 1500,
+      'max_tokens': 4096,
     };
+    if (!hasImage) {
+      payload['top_p'] = 0.95;
+      payload['chat_template_kwargs'] = {
+        'thinking': true,
+        'reasoning_effort': 'high',
+      };
+    }
 
     // Fast check if local backend is active (only for text-only messages, bypass for image vision requests)
     if (!hasImage) {
@@ -237,7 +244,8 @@ GOLDEN PERSONA EXAMPLES:
             if (resData.containsKey('reply')) {
               reply = (resData['reply'] as String).trim();
             } else if (resData.containsKey('choices')) {
-              reply = (resData['choices'][0]['message']['content'] as String).trim();
+              final messageObj = resData['choices'][0]['message'];
+              reply = ((messageObj['content'] as String?) ?? (messageObj['reasoning'] as String?) ?? (messageObj['reasoning_content'] as String?))?.trim();
             }
             if (reply != null && reply.isNotEmpty && !reply.contains("mind is blanking")) {
               return reply;
@@ -279,18 +287,17 @@ GOLDEN PERSONA EXAMPLES:
             'Authorization': 'Bearer $_nvidiaChatKey',
             'Content-Type': 'application/json',
           },
-          body: json.encode({
-            'model': modelName,
-            'messages': messages,
-            'temperature': 0.7,
-            'max_tokens': 1500,
-          }),
-        ).timeout(Duration(seconds: hasImage ? 35 : 10));
+          body: json.encode(payload),
+        ).timeout(Duration(seconds: hasImage ? 35 : 15));
 
         if (res.statusCode == 200) {
           final resData = json.decode(utf8.decode(res.bodyBytes));
           if (resData.containsKey('choices') && resData['choices'].isNotEmpty) {
-            final reply = (resData['choices'][0]['message']['content'] as String).trim();
+            final messageObj = resData['choices'][0]['message'];
+            String reply = (messageObj['content'] as String? ?? '').trim();
+            if (reply.isEmpty) {
+              reply = (messageObj['reasoning'] as String? ?? messageObj['reasoning_content'] as String? ?? '').trim();
+            }
             if (isValidAiResponse(reply)) {
               return reply;
             }
