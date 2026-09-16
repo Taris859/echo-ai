@@ -1,6 +1,6 @@
 import 'dart:convert';
 
-import 'package:flutter/foundation.dart' show debugPrint, defaultTargetPlatform, TargetPlatform;
+import 'package:flutter/foundation.dart' show debugPrint, defaultTargetPlatform, TargetPlatform, kIsWeb;
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -153,6 +153,18 @@ $memoryText
       'reasoning_budget': 2048,
     };
 
+    // ══════════════════════════════════════════════════════════════════════════
+    // WEB PATH — browser CORS blocks NVIDIA + localhost + Pollinations POST.
+    // Only safe option on web is Pollinations GET (no preflight, CORS-free).
+    // ══════════════════════════════════════════════════════════════════════════
+    if (kIsWeb) {
+      return _pollinationsGet(userMessage, profile, history);
+    }
+
+    // ══════════════════════════════════════════════════════════════════════════
+    // NATIVE PATH (Android / iOS / Windows / macOS / Linux) — full chain
+    // ══════════════════════════════════════════════════════════════════════════
+
     // ── 1. Local FastAPI backend proxy ────────────────────────────────────────
     for (final baseUrl in _backendBaseUrls) {
       try {
@@ -197,126 +209,48 @@ $memoryText
       }
     }
 
-    // ── 3. Direct NVIDIA NIM (if key is compiled in) ──────────────────────────
+    // ── 3. Direct NVIDIA NIM — primary reasoning model ────────────────────────
     if (_nvidiaApiKey.isNotEmpty) {
-      try {
-        final response = await http
-            .post(
-              Uri.parse(
-                  'https://integrate.api.nvidia.com/v1/chat/completions'),
-              headers: {
-                'Authorization': 'Bearer $_nvidiaApiKey',
-                'Content-Type': 'application/json',
-              },
-              body: jsonEncode(payload),
-            )
-            .timeout(Duration(seconds: hasImage ? 60 : 30));
-        if (response.statusCode == 200) {
-          final reply =
-              _extractReply(jsonDecode(utf8.decode(response.bodyBytes)));
-          if (reply != null && reply.isNotEmpty && _isValidReply(reply)) {
-            return reply;
-          }
-        } else {
-          debugPrint(
-              'NVIDIA NIM error ${response.statusCode}: ${response.body.substring(0, response.body.length.clamp(0, 300))}');
-        }
-      } catch (error) {
-        debugPrint('NVIDIA NIM primary model failed: $error');
-      }
+      // 3a. Primary model (reasoning)
+      final reply3a = await _nvidiaCall(payload, hasImage);
+      if (reply3a != null) return reply3a;
 
-      // ── 3b. NVIDIA NIM — fast llama fallback model ──────────────────────────
-      try {
-        final fallbackPayload = <String, dynamic>{
-          'model': 'meta/llama-3.3-70b-instruct',
-          'messages': messages,
-          'temperature': 0.7,
-          'top_p': 0.95,
-          'max_tokens': 1024,
-        };
-        final response2 = await http
-            .post(
-              Uri.parse(
-                  'https://integrate.api.nvidia.com/v1/chat/completions'),
-              headers: {
-                'Authorization': 'Bearer $_nvidiaApiKey',
-                'Content-Type': 'application/json',
-              },
-              body: jsonEncode(fallbackPayload),
-            )
-            .timeout(Duration(seconds: hasImage ? 40 : 20));
-        if (response2.statusCode == 200) {
-          final reply2 =
-              _extractReply(jsonDecode(utf8.decode(response2.bodyBytes)));
-          if (reply2 != null && reply2.isNotEmpty && _isValidReply(reply2)) {
-            return reply2;
-          }
-        } else {
-          debugPrint(
-              'NVIDIA llama fallback error ${response2.statusCode}: ${response2.body.substring(0, response2.body.length.clamp(0, 200))}');
-        }
-      } catch (error) {
-        debugPrint('NVIDIA llama fallback failed: $error');
-      }
+      // 3b. Fast llama fallback
+      final llamaPayload = <String, dynamic>{
+        'model': 'meta/llama-3.3-70b-instruct',
+        'messages': messages,
+        'temperature': 0.7,
+        'top_p': 0.95,
+        'max_tokens': 1024,
+      };
+      final reply3b = await _nvidiaCall(llamaPayload, hasImage);
+      if (reply3b != null) return reply3b;
 
-      // ── 3c. NVIDIA NIM — second fallback model (Mistral) ────────────────────
-      try {
-        final fallbackPayload2 = <String, dynamic>{
-          'model': 'mistralai/mixtral-8x7b-instruct-v0.1',
-          'messages': messages,
-          'temperature': 0.7,
-          'top_p': 0.95,
-          'max_tokens': 1024,
-        };
-        final response3 = await http
-            .post(
-              Uri.parse(
-                  'https://integrate.api.nvidia.com/v1/chat/completions'),
-              headers: {
-                'Authorization': 'Bearer $_nvidiaApiKey',
-                'Content-Type': 'application/json',
-              },
-              body: jsonEncode(fallbackPayload2),
-            )
-            .timeout(Duration(seconds: hasImage ? 40 : 20));
-        if (response3.statusCode == 200) {
-          final reply3 =
-              _extractReply(jsonDecode(utf8.decode(response3.bodyBytes)));
-          if (reply3 != null && reply3.isNotEmpty && _isValidReply(reply3)) {
-            return reply3;
-          }
-        } else {
-          debugPrint(
-              'NVIDIA second fallback error ${response3.statusCode}: ${response3.body.substring(0, response3.body.length.clamp(0, 200))}');
-        }
-      } catch (error) {
-        debugPrint('NVIDIA second fallback failed: $error');
-      }
+      // 3c. Mistral fallback
+      final mistralPayload = <String, dynamic>{
+        'model': 'mistralai/mixtral-8x7b-instruct-v0.1',
+        'messages': messages,
+        'temperature': 0.7,
+        'top_p': 0.95,
+        'max_tokens': 1024,
+      };
+      final reply3c = await _nvidiaCall(mistralPayload, hasImage);
+      if (reply3c != null) return reply3c;
     }
 
-    // ── 4. Pollinations AI — rich Echo personality POST ─────────────────────
+    // ── 4. Pollinations POST (native only — 403 on web) ───────────────────────
     if (!hasImage) {
-      // Build compact but personality-rich messages for Pollinations
-      // Include last 4 turns of history so replies have context
-      final recentHistory = history.length > 4
-          ? history.sublist(history.length - 4)
-          : history;
-
-      final String name =
-          (profile ?? {})['name']?.toString().trim() ?? 'friend';
-      final polSystemPrompt = '''
-you are echo, the user's best friend and AI companion. you are warm, witty, funny, direct, and deeply engaged. you never sound like a generic AI.
-your user's name is $name.
-rules: reply in lowercase (unless excited). no filler phrases like "great question" or "as an AI". be real, be human, be echo.
-if asked about facts/info, answer fully and helpfully.''';
-
-      final polMessages = [
-        {'role': 'system', 'content': polSystemPrompt},
-        ...recentHistory,
-        {'role': 'user', 'content': userMessage},
-      ];
-
       try {
+        final recentHistory =
+            history.length > 4 ? history.sublist(history.length - 4) : history;
+        final name = (profile ?? {})['name']?.toString().trim() ?? 'friend';
+        final polSystemPrompt =
+            "you are echo, $name's witty best-friend AI. be warm, direct, funny. no filler. answer fully.";
+        final polMessages = [
+          {'role': 'system', 'content': polSystemPrompt},
+          ...recentHistory,
+          {'role': 'user', 'content': userMessage},
+        ];
         final polRes = await http
             .post(
               Uri.parse('https://text.pollinations.ai/'),
@@ -336,26 +270,92 @@ if asked about facts/info, answer fully and helpfully.''';
       } catch (error) {
         debugPrint('Pollinations POST failed: $error');
       }
-
-      // ── 5. Pollinations GET — ultra-simple last resort ────────────────────
-      try {
-        final prompt =
-            'you are echo, a witty best-friend AI. reply naturally: $userMessage';
-        final encoded = Uri.encodeComponent(prompt.trim());
-        final getRes = await http
-            .get(Uri.parse(
-                'https://text.pollinations.ai/$encoded?model=openai&cache=false'))
-            .timeout(const Duration(seconds: 12));
-        if (getRes.statusCode == 200) {
-          final body = utf8.decode(getRes.bodyBytes).trim();
-          if (body.isNotEmpty && _isValidReply(body)) return body;
-        }
-      } catch (error) {
-        debugPrint('Pollinations GET failed: $error');
-      }
     }
 
-    return 'connection error — unable to reach any AI provider. check your internet connection.';
+    // ── 5. Pollinations GET — last resort on native ───────────────────────────
+    return _pollinationsGet(userMessage, profile, history);
+  }
+
+  // ── Pollinations GET helper (CORS-safe on web & native) ────────────────────
+  static Future<String> _pollinationsGet(
+    String userMessage,
+    Map<String, dynamic>? profile,
+    List<Map<String, dynamic>> history,
+  ) async {
+    final name = (profile ?? {})['name']?.toString().trim() ?? 'friend';
+
+    // Build compact Echo-flavoured prompt with last 2 turns of context
+    final recentHistory =
+        history.length > 2 ? history.sublist(history.length - 2) : history;
+    final contextLines = recentHistory
+        .map((m) {
+          final role = m['role'] == 'user' ? name : 'echo';
+          final text = (m['content'] as String?)?.trim() ?? '';
+          return '$role: $text';
+        })
+        .where((s) => s.isNotEmpty)
+        .join('\n');
+
+    final contextPrefix = contextLines.isNotEmpty
+        ? '$contextLines\n$name: $userMessage'
+        : userMessage;
+
+    final fullPrompt =
+        "you are echo, $name's witty AI best friend. reply naturally, helpfully, in lowercase. no filler. "
+        "$contextPrefix";
+
+    // Truncate to 800 chars to stay within URL limits
+    final truncated = fullPrompt.length > 800
+        ? '${fullPrompt.substring(0, 800)}...'
+        : fullPrompt;
+
+    try {
+      final encoded = Uri.encodeComponent(truncated);
+      final getRes = await http
+          .get(Uri.parse(
+              'https://text.pollinations.ai/$encoded?model=openai&cache=false'))
+          .timeout(const Duration(seconds: 25));
+      if (getRes.statusCode == 200) {
+        final body = utf8.decode(getRes.bodyBytes).trim();
+        if (body.isNotEmpty && _isValidReply(body)) return body;
+      }
+      debugPrint('Pollinations GET status: ${getRes.statusCode}');
+    } catch (error) {
+      debugPrint('Pollinations GET failed: $error');
+    }
+
+    return "hmm, can't reach any AI right now — check your internet and try again!";
+  }
+
+  // ── NVIDIA NIM call helper ──────────────────────────────────────────────────
+  static Future<String?> _nvidiaCall(
+      Map<String, dynamic> payload, bool hasImage) async {
+    try {
+      final response = await http
+          .post(
+            Uri.parse(
+                'https://integrate.api.nvidia.com/v1/chat/completions'),
+            headers: {
+              'Authorization': 'Bearer $_nvidiaApiKey',
+              'Content-Type': 'application/json',
+            },
+            body: jsonEncode(payload),
+          )
+          .timeout(Duration(seconds: hasImage ? 60 : 30));
+      if (response.statusCode == 200) {
+        final reply =
+            _extractReply(jsonDecode(utf8.decode(response.bodyBytes)));
+        if (reply != null && reply.isNotEmpty && _isValidReply(reply)) {
+          return reply;
+        }
+      } else {
+        debugPrint(
+            'NVIDIA error ${response.statusCode} [${payload['model']}]: ${response.body.substring(0, response.body.length.clamp(0, 200))}');
+      }
+    } catch (error) {
+      debugPrint('NVIDIA call [${payload['model']}] failed: $error');
+    }
+    return null;
   }
 
   // ── Reply extraction ────────────────────────────────────────────────────────
@@ -384,7 +384,9 @@ if asked about facts/info, answer fully and helpfully.''';
         !lower.contains('wallet balance') &&
         !lower.contains('invalid api key') &&
         !lower.contains('rate limit reached') &&
-        !lower.contains('internal server error');
+        !lower.contains('internal server error') &&
+        !lower.startsWith('<!doctype') &&
+        !lower.startsWith('<html');
   }
 
   // ── Session title ───────────────────────────────────────────────────────────
@@ -404,6 +406,7 @@ if asked about facts/info, answer fully and helpfully.''';
     required String userMessage,
     required List<Map<String, dynamic>> memories,
   }) async {
+    if (kIsWeb) return null; // Skip on web — backend not reachable via CORS
     final request = {
       'user_message': userMessage,
       'memories_context': memories
