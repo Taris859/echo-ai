@@ -209,6 +209,27 @@ Secure Backend
    ↓
 AI Provider
 
+## Running the AI backend
+
+The AI provider key must stay on the server. Set `NVIDIA_CHAT_KEY` in the backend or
+serverless function environment; never put it in Flutter code or commit it to GitHub.
+
+For a local backend, run it from the repository root:
+
+```powershell
+python -m uvicorn backend.main:app --reload --port 8000
+```
+
+When the backend is deployed remotely, build the Flutter app with its HTTPS base URL:
+
+```powershell
+flutter build web --release --dart-define=ECHO_API_URL=https://your-backend.example.com --base-href "/echo-ai/"
+```
+
+The GitHub Pages workflow deploys the static web app only. It does not expose server
+environment variables, so the backend must be deployed separately with
+`NVIDIA_CHAT_KEY` configured.
+
 API credentials remain on the server side rather than being shipped with the client application.
 
 ---

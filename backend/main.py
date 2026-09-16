@@ -1,5 +1,7 @@
 import os
 import sys
+import json
+import requests
 
 # Ensure backend directory is in the python path for robust module importing
 backend_dir = os.path.dirname(os.path.abspath(__file__))
@@ -269,4 +271,3 @@ def api_extract_memory_proxy(req: APIExtractMemoryRequest):
     except Exception as e:
         print(f"API extract memory proxy error: {e}")
     return {}
-
