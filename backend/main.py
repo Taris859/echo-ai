@@ -202,8 +202,11 @@ async def websocket_chat(websocket: WebSocket, user_id: str = "default_user"):
 
 class APIChatRequest(BaseModel):
     messages: list
-    model: str = "nvidia/nemotron-3-ultra-550b-a55b"
-    temperature: float = 0.1
+    model: str = "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning"
+    temperature: float = 0.6
+    top_p: float = 0.95
+    max_tokens: int = 4096
+    reasoning_budget: int = 2048
 
 class APIExtractMemoryRequest(BaseModel):
     user_message: str
@@ -224,13 +227,19 @@ def api_chat_proxy(req: APIChatRequest):
     payload = {
         "model": req.model,
         "messages": req.messages,
-        "temperature": req.temperature
+        "temperature": req.temperature,
+        "top_p": req.top_p,
+        "max_tokens": req.max_tokens,
+        "reasoning_budget": req.reasoning_budget,
     }
     try:
-        res = requests.post("https://integrate.api.nvidia.com/v1/chat/completions", json=payload, headers=headers, timeout=35)
+        res = requests.post("https://integrate.api.nvidia.com/v1/chat/completions", json=payload, headers=headers, timeout=60)
         if res.status_code == 200:
-            content = res.json()["choices"][0]["message"]["content"]
-            return {"reply": content}
+            msg = res.json()["choices"][0]["message"]
+            # Nemotron reasoning models return content or reasoning field
+            content = msg.get("content") or msg.get("reasoning") or msg.get("reasoning_content") or ""
+            return {"reply": content.strip()}
+        print(f"NVIDIA API error {res.status_code}: {res.text[:300]}")
     except Exception as e:
         print(f"API chat proxy error: {e}")
     return {"reply": "sorry, my mind is blanking right now. check your connection tbh."}
@@ -247,7 +256,7 @@ def api_extract_memory_proxy(req: APIExtractMemoryRequest):
         "Content-Type": "application/json"
     }
     payload = {
-        "model": "nvidia/nemotron-3-ultra-550b-a55b",
+        "model": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning",
         "messages": [
             {"role": "system", "content": req.system_prompt},
             {"role": "user", "content": f"Analyze: '{req.user_message}'"}

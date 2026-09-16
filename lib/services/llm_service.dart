@@ -6,7 +6,7 @@ import 'package:http/http.dart' as http;
 class LlmService {
   static const String _proxyUrl = String.fromEnvironment('ECHO_PROXY_URL');
   static const String _configuredApiBaseUrl = String.fromEnvironment('ECHO_API_URL');
-  static const String _model = 'deepseek-ai/deepseek-v4-flash-0731';
+  static const String _model = 'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning';
 
   static List<String> get _backendBaseUrls {
     final configured = _configuredApiBaseUrl.trim().replaceFirst(RegExp(r'/$'), '');
@@ -81,8 +81,10 @@ $memoryText
     final payload = {
       'model': _model,
       'messages': messages,
-      'temperature': 0.7,
-      'max_tokens': 2048,
+      'temperature': 0.6,
+      'top_p': 0.95,
+      'max_tokens': 4096,
+      'reasoning_budget': 2048,
     };
 
     for (final baseUrl in _backendBaseUrls) {
