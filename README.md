@@ -230,6 +230,25 @@ The GitHub Pages workflow deploys the static web app only. It does not expose se
 environment variables, so the backend must be deployed separately with
 `NVIDIA_CHAT_KEY` configured.
 
+## Firebase deployment
+
+Echo uses a Firebase HTTPS Function as its secure AI gateway. The NVIDIA key is
+stored in Firebase Secret Manager and is never included in Flutter builds or Git.
+The Firebase project must use the Blaze plan because Cloud Functions and Secret
+Manager require billing to be enabled.
+
+From the repository root, after enabling Blaze:
+
+```powershell
+firebase use echo-41c5d-506717
+firebase functions:secrets:set NVIDIA_CHAT_KEY
+flutter build web --release
+firebase deploy --only functions,hosting,firestore
+```
+
+The Hosting rewrite sends `/api/chat` and `/api/extract-memory` to the
+`asia-south1` `echo_api` function, so web users do not need a local server.
+
 API credentials remain on the server side rather than being shipped with the client application.
 
 ---

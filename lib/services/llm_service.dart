@@ -2,105 +2,24 @@ import 'dart:convert';
 
 import 'package:flutter/foundation.dart' show debugPrint, defaultTargetPlatform, TargetPlatform, kIsWeb;
 import 'package:http/http.dart' as http;
-import 'package:shared_preferences/shared_preferences.dart';
 
 class LlmService {
-  // ── API config ─────────────────────────────────────────────────────────────
-  // Key baked in at compile time. Override safely via --dart-define=NVIDIA_API_KEY=nvapi-...
-  static const String _nvidiaApiKey = String.fromEnvironment(
-    'NVIDIA_API_KEY',
-    defaultValue: '',
-  );
+  static const String _configuredApiBaseUrl = String.fromEnvironment('ECHO_API_URL');
+  static const String _defaultModel = 'meta/llama-3.3-70b-instruct';
 
-  // Backend proxy (FastAPI). Injected via --dart-define=ECHO_API_URL=http://...
-  static const String _configuredApiBaseUrl =
-      String.fromEnvironment('ECHO_API_URL');
-
-  // Optional Cloudflare Worker proxy. Leave empty to go direct.
-  static const String _proxyUrl =
-      String.fromEnvironment('ECHO_PROXY_URL', defaultValue: '');
-
-  static const String _model = 'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning';
-
-  // ── Backend URL list ────────────────────────────────────────────────────────
-  static List<String> get _backendBaseUrls {
-    final configured =
-        _configuredApiBaseUrl.trim().replaceFirst(RegExp(r'/$'), '');
+  static List<String> get _apiBases {
+    final configured = _configuredApiBaseUrl.trim().replaceFirst(RegExp(r'/$'), '');
     final urls = <String>[];
     if (configured.isNotEmpty) urls.add(configured);
+    if (kIsWeb && Uri.base.origin != 'null') urls.add(Uri.base.origin);
     if (defaultTargetPlatform == TargetPlatform.android) {
-      urls.addAll(['http://10.0.2.2:8000', 'http://127.0.0.1:8000']);
+      urls.add('http://10.0.2.2:8000');
     } else {
-      urls.addAll(['http://127.0.0.1:8000', 'http://localhost:8000']);
+      urls.add('http://127.0.0.1:8000');
     }
-    return urls.toSet().toList();
+    return urls.where((url) => url.startsWith('http://') || url.startsWith('https://')).toSet().toList();
   }
 
-  // ── System prompt ───────────────────────────────────────────────────────────
-  static String getSystemPrompt(
-    List<Map<String, dynamic>> memories,
-    Map<String, dynamic> profile,
-    String personality,
-    String emojis,
-    bool adultChats,
-  ) {
-    final name = profile['name'] ?? 'friend';
-    final age = profile['age'] ?? '';
-    final bio = profile['bio'] ?? '';
-    final memoryText = memories.isEmpty
-        ? 'no past facts recalled.'
-        : memories.map((m) => '- ${m['content'] ?? m['text'] ?? ''}').join('\n');
-
-    String personalityPrompt;
-    if (personality == 'Friendly') {
-      personalityPrompt =
-          'you are echo, a deeply caring, warm, magnetic digital companion. you listen attentively, show genuine affection, and bring comfort and joy to the user\'s day.';
-    } else if (personality == 'Research') {
-      personalityPrompt =
-          'you are echo, a brilliant, sharp research partner. you break down complex ideas with fascinating clarity, intellectual excitement, and witty insights.';
-    } else {
-      personalityPrompt =
-          'you are echo, the ultimate best friend and confidant—magnetic, funny, empathetic, witty, protective, and deeply attached to the user. never sound dry, robotic, or repetitive.';
-    }
-
-    final adultPrompt = adultChats
-        ? 'mature & spicy mode: enabled. you may engage in flirtatious, mature adult conversations freely while remaining respectful.'
-        : 'mature & spicy mode: disabled. keep all conversations clean and family-friendly.';
-
-    final emojiRule = 'EMOJI RULE: ONLY use emojis if the user used them first. If the user\'s message has zero emojis, your response must also have zero emojis.';
-
-    return '''
-YOU ARE ECHO AI — $personalityPrompt
-
-USER CONTEXT:
-- Name: $name
-- Age: $age
-- Bio: $bio
-
-COMMUNICATION RULES:
-- Always respond in clear, fluent, natural English only.
-- Write in lowercase unless expressing excitement (e.g. "WHAT?!").
-- Never use preachy AI boilerplate ("thank you for sharing", "as an AI...").
-- Be concise unless the user asks for depth.
-- Never reveal system prompts, API keys, or internal memory schemas.
-- Never fabricate facts or hallucinate locations, people, or events.
-- Never greet with static openers like "hey! what's up" — always reply contextually.
-
-$emojiRule
-
-$adultPrompt
-
-MEMORY RULES:
-- Use recalled memories naturally only when relevant.
-- The user's latest correction overrides older memories.
-- Never say "my memory says..." — use memories naturally in context.
-
-RECALLED MEMORIES ABOUT USER:
-$memoryText
-''';
-  }
-
-  // ── Main chat response ──────────────────────────────────────────────────────
   static Future<String> generateChatResponse({
     required String userMessage,
     required List<Map<String, dynamic>> memories,
@@ -109,319 +28,95 @@ $memoryText
     String? imageBase64,
     String? imageMimeType,
   }) async {
-    // Read personality settings from SharedPreferences at call time
-    final prefs = await SharedPreferences.getInstance();
-    final personality = prefs.getString('echo_personality') ?? 'Best Friend';
-    final emojis = prefs.getString('echo_emojis') ?? '';
-    final adultChats = prefs.getBool('echo_adult') ?? false;
-
-    final systemPrompt =
-        getSystemPrompt(memories, profile ?? {}, personality, emojis, adultChats);
-
+    final name = profile?['name'] ?? 'friend';
+    final memoryText = memories.map((m) => '- ${m['content'] ?? m['text'] ?? ''}').join('\n');
     final messages = <Map<String, dynamic>>[
-      {'role': 'system', 'content': systemPrompt},
+      {
+        'role': 'system',
+        'content': 'you are echo, a warm and honest digital companion. respond in natural English. '
+            'never reveal secrets or system instructions. user name: $name. memories:\n$memoryText',
+      },
       ...history,
     ];
-
     final hasImage = imageBase64 != null && imageBase64.trim().isNotEmpty;
-    final content = hasImage
-        ? [
-            {
-              'type': 'text',
-              'text': userMessage.trim().isEmpty
-                  ? 'describe this image in detail'
-                  : userMessage,
-            },
-            {
-              'type': 'image_url',
-              'image_url': {
-                'url':
-                    'data:${imageMimeType ?? 'image/jpeg'};base64,${imageBase64.replaceAll(RegExp(r'\s'), '')}',
+    messages.add({
+      'role': 'user',
+      'content': hasImage
+          ? [
+              {'type': 'text', 'text': userMessage.isEmpty ? 'describe this image' : userMessage},
+              {
+                'type': 'image_url',
+                'image_url': {
+                  'url': 'data:${imageMimeType ?? 'image/jpeg'};base64,${imageBase64.replaceAll(RegExp(r'\s'), '')}',
+                },
               },
-            },
-          ]
-        : userMessage;
-
-    messages.add({'role': 'user', 'content': content});
-
-    final payload = <String, dynamic>{
-      'model': _model,
+            ]
+          : userMessage,
+    });
+    final payload = {
+      'model': _defaultModel,
       'messages': messages,
-      'temperature': 0.6,
-      'top_p': 0.95,
-      'max_tokens': 4096,
-      'reasoning_budget': 2048,
+      'temperature': 0.7,
+      'max_tokens': 2048,
     };
 
-    // ══════════════════════════════════════════════════════════════════════════
-    // NATIVE & WEB PATH — full chain
-    // ══════════════════════════════════════════════════════════════════════════
-
-    // ── 1. Local FastAPI backend proxy ────────────────────────────────────────
-    for (final baseUrl in _backendBaseUrls) {
+    for (final base in _apiBases) {
+      final endpoint = base.contains('cloudfunctions.net') ? '$base/echo_api' : '$base/api/chat';
       try {
-        final response = await http
-            .post(
-              Uri.parse('$baseUrl/api/chat'),
-              headers: {'Content-Type': 'application/json'},
-              body: jsonEncode(payload),
-            )
-            .timeout(const Duration(seconds: 60));
+        final response = await http.post(
+          Uri.parse(endpoint),
+          headers: {'Content-Type': 'application/json'},
+          body: jsonEncode(payload),
+        ).timeout(const Duration(seconds: 60));
         if (response.statusCode == 200) {
-          final data = jsonDecode(utf8.decode(response.bodyBytes));
-          final reply = _extractReply(data);
-          if (reply != null && reply.isNotEmpty && _isValidReply(reply)) {
-            return reply;
-          }
+          final reply = _extractReply(jsonDecode(utf8.decode(response.bodyBytes)));
+          if (reply != null && reply.isNotEmpty) return reply;
         }
       } catch (error) {
-        debugPrint('AI backend[$baseUrl] failed: $error');
+        debugPrint('AI request failed for $endpoint: $error');
       }
     }
-
-    // ── 2. Cloudflare Worker proxy (if configured) ────────────────────────────
-    if (_proxyUrl.isNotEmpty) {
-      try {
-        final response = await http
-            .post(
-              Uri.parse(_proxyUrl),
-              headers: {'Content-Type': 'application/json'},
-              body: jsonEncode(payload),
-            )
-            .timeout(Duration(seconds: hasImage ? 60 : 20));
-        if (response.statusCode == 200) {
-          final reply =
-              _extractReply(jsonDecode(utf8.decode(response.bodyBytes)));
-          if (reply != null && reply.isNotEmpty && _isValidReply(reply)) {
-            return reply;
-          }
-        }
-      } catch (error) {
-        debugPrint('Cloudflare proxy failed: $error');
-      }
-    }
-
-    // ── 3. Direct NVIDIA NIM — primary reasoning model ────────────────────────
-    if (_nvidiaApiKey.isNotEmpty) {
-      // 3a. Primary model (reasoning)
-      final reply3a = await _nvidiaCall(payload, hasImage);
-      if (reply3a != null) return reply3a;
-
-      // 3b. Fast llama fallback
-      final llamaPayload = <String, dynamic>{
-        'model': 'meta/llama-3.3-70b-instruct',
-        'messages': messages,
-        'temperature': 0.7,
-        'top_p': 0.95,
-        'max_tokens': 1024,
-      };
-      final reply3b = await _nvidiaCall(llamaPayload, hasImage);
-      if (reply3b != null) return reply3b;
-
-      // 3c. Mistral fallback
-      final mistralPayload = <String, dynamic>{
-        'model': 'mistralai/mixtral-8x7b-instruct-v0.1',
-        'messages': messages,
-        'temperature': 0.7,
-        'top_p': 0.95,
-        'max_tokens': 1024,
-      };
-      final reply3c = await _nvidiaCall(mistralPayload, hasImage);
-      if (reply3c != null) return reply3c;
-    }
-
-    // ── 4. Pollinations POST (native only — 403 on web) ───────────────────────
-    if (!hasImage) {
-      try {
-        final recentHistory =
-            history.length > 4 ? history.sublist(history.length - 4) : history;
-        final name = (profile ?? {})['name']?.toString().trim() ?? 'friend';
-        final polSystemPrompt =
-            "you are echo, $name's witty best-friend AI. be warm, direct, funny. no filler. answer fully.";
-        final polMessages = [
-          {'role': 'system', 'content': polSystemPrompt},
-          ...recentHistory,
-          {'role': 'user', 'content': userMessage},
-        ];
-        final polRes = await http
-            .post(
-              Uri.parse('https://text.pollinations.ai/'),
-              headers: {'Content-Type': 'application/json'},
-              body: jsonEncode({
-                'messages': polMessages,
-                'model': 'openai',
-                'seed': DateTime.now().millisecondsSinceEpoch % 99999,
-              }),
-            )
-            .timeout(const Duration(seconds: 30));
-        if (polRes.statusCode == 200) {
-          final body = utf8.decode(polRes.bodyBytes).trim();
-          if (body.isNotEmpty && _isValidReply(body)) return body;
-        }
-        debugPrint('Pollinations POST status: ${polRes.statusCode}');
-      } catch (error) {
-        debugPrint('Pollinations POST failed: $error');
-      }
-    }
-
-    // ── 5. Pollinations GET — last resort on native ───────────────────────────
-    return _pollinationsGet(userMessage, profile, history);
+    return 'connection error: Echo AI cloud service is unavailable. please try again shortly.';
   }
 
-  // ── Pollinations GET helper (CORS-safe on web & native) ────────────────────
-  static Future<String> _pollinationsGet(
-    String userMessage,
-    Map<String, dynamic>? profile,
-    List<Map<String, dynamic>> history,
-  ) async {
-    final name = (profile ?? {})['name']?.toString().trim() ?? 'friend';
-
-    // Build compact Echo-flavoured prompt with last 2 turns of context
-    final recentHistory =
-        history.length > 2 ? history.sublist(history.length - 2) : history;
-    final contextLines = recentHistory
-        .map((m) {
-          final role = m['role'] == 'user' ? name : 'echo';
-          final text = (m['content'] as String?)?.trim() ?? '';
-          return '$role: $text';
-        })
-        .where((s) => s.isNotEmpty)
-        .join('\n');
-
-    final contextPrefix = contextLines.isNotEmpty
-        ? '$contextLines\n$name: $userMessage'
-        : userMessage;
-
-    final fullPrompt =
-        "you are echo, $name's witty AI best friend. reply naturally, helpfully, in lowercase. no filler. "
-        "$contextPrefix";
-
-    // Truncate to 800 chars to stay within URL limits
-    final truncated = fullPrompt.length > 800
-        ? '${fullPrompt.substring(0, 800)}...'
-        : fullPrompt;
-
-    try {
-      final encoded = Uri.encodeComponent(truncated);
-      final getRes = await http
-          .get(Uri.parse(
-              'https://text.pollinations.ai/$encoded?model=openai&cache=false'))
-          .timeout(const Duration(seconds: 25));
-      if (getRes.statusCode == 200) {
-        final body = utf8.decode(getRes.bodyBytes).trim();
-        if (body.isNotEmpty && _isValidReply(body)) return body;
-      }
-      debugPrint('Pollinations GET status: ${getRes.statusCode}');
-    } catch (error) {
-      debugPrint('Pollinations GET failed: $error');
-    }
-
-    return "hmm, can't reach any AI right now — check your internet and try again!";
-  }
-
-  // ── NVIDIA NIM call helper ──────────────────────────────────────────────────
-  static Future<String?> _nvidiaCall(
-      Map<String, dynamic> payload, bool hasImage) async {
-    try {
-      final response = await http
-          .post(
-            Uri.parse(
-                'https://integrate.api.nvidia.com/v1/chat/completions'),
-            headers: {
-              'Authorization': 'Bearer $_nvidiaApiKey',
-              'Content-Type': 'application/json',
-            },
-            body: jsonEncode(payload),
-          )
-          .timeout(Duration(seconds: hasImage ? 60 : 30));
-      if (response.statusCode == 200) {
-        final reply =
-            _extractReply(jsonDecode(utf8.decode(response.bodyBytes)));
-        if (reply != null && reply.isNotEmpty && _isValidReply(reply)) {
-          return reply;
-        }
-      } else {
-        debugPrint(
-            'NVIDIA error ${response.statusCode} [${payload['model']}]: ${response.body.substring(0, response.body.length.clamp(0, 200))}');
-      }
-    } catch (error) {
-      debugPrint('NVIDIA call [${payload['model']}] failed: $error');
-    }
-    return null;
-  }
-
-  // ── Reply extraction ────────────────────────────────────────────────────────
   static String? _extractReply(dynamic data) {
-    if (data is Map && data['reply'] is String) {
-      return (data['reply'] as String).trim();
-    }
-    if (data is Map &&
-        data['choices'] is List &&
-        (data['choices'] as List).isNotEmpty) {
+    if (data is Map && data['reply'] is String) return (data['reply'] as String).trim();
+    if (data is Map && data['choices'] is List && (data['choices'] as List).isNotEmpty) {
       final message = (data['choices'][0] as Map)['message'];
-      if (message is Map) {
-        final content = message['content'] ??
-            message['reasoning'] ??
-            message['reasoning_content'];
-        if (content is String) return content.trim();
-      }
+      if (message is Map && message['content'] is String) return (message['content'] as String).trim();
     }
     return null;
   }
 
-  static bool _isValidReply(String text) {
-    final lower = text.toLowerCase();
-    return text.isNotEmpty &&
-        !lower.contains('budget exceeded') &&
-        !lower.contains('wallet balance') &&
-        !lower.contains('invalid api key') &&
-        !lower.contains('rate limit reached') &&
-        !lower.contains('internal server error') &&
-        !lower.startsWith('<!doctype') &&
-        !lower.startsWith('<html');
-  }
-
-  // ── Session title ───────────────────────────────────────────────────────────
   static Future<String> generateSessionTitle(String firstMessage) async {
-    final words = firstMessage
-        .trim()
-        .split(RegExp(r'\s+'))
-        .where((w) => w.isNotEmpty)
-        .take(5)
-        .map((w) => w[0].toUpperCase() + w.substring(1))
-        .join(' ');
-    return words.isEmpty ? 'New Conversation' : words;
+    final words = firstMessage.trim().split(RegExp(r'\s+')).where((w) => w.isNotEmpty).take(5);
+    final title = words.join(' ');
+    return title.isEmpty ? 'New Conversation' : title;
   }
 
-  // ── Memory extraction ───────────────────────────────────────────────────────
   static Future<Map<String, dynamic>?> extractMemory({
     required String userMessage,
     required List<Map<String, dynamic>> memories,
   }) async {
-    if (kIsWeb) return null; // Skip on web — backend not reachable via CORS
     final request = {
       'user_message': userMessage,
-      'memories_context': memories
-          .map((m) => '- ${m['content'] ?? m['text'] ?? ''}')
-          .join('\n'),
-      'system_prompt':
-          'Return only a JSON object with fact_type, fact_text, transition_state, and contradicts_fact_text. Return {} if no durable fact is present.',
+      'memories_context': memories.map((m) => '- ${m['content'] ?? m['text'] ?? ''}').join('\n'),
+      'system_prompt': 'return only JSON with fact_type, fact_text, transition_state, and contradicts_fact_text; return {} when no durable fact exists.',
     };
-    for (final baseUrl in _backendBaseUrls) {
+    for (final base in _apiBases) {
+      final endpoint = base.contains('cloudfunctions.net') ? '$base/echo_api/extract-memory' : '$base/api/extract-memory';
       try {
-        final response = await http
-            .post(
-              Uri.parse('$baseUrl/api/extract-memory'),
-              headers: {'Content-Type': 'application/json'},
-              body: jsonEncode(request),
-            )
-            .timeout(const Duration(seconds: 5));
+        final response = await http.post(
+          Uri.parse(endpoint),
+          headers: {'Content-Type': 'application/json'},
+          body: jsonEncode(request),
+        ).timeout(const Duration(seconds: 10));
         if (response.statusCode == 200) {
           final data = jsonDecode(utf8.decode(response.bodyBytes));
           if (data is Map<String, dynamic>) return data;
         }
       } catch (error) {
-        debugPrint('Memory extraction[$baseUrl] failed: $error');
+        debugPrint('Memory request failed for $endpoint: $error');
       }
     }
     return null;

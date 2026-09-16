@@ -26,6 +26,7 @@ migrate_working_dir/
 .pub-cache/
 .pub/
 /build/
+/public/
 /coverage/
 
 # Symbolication / Obfuscation related
@@ -65,5 +66,4 @@ firebase_options.dart
 # Heap Dumps and Build Markers
 *.hprof
 .last_build_id
-
 
