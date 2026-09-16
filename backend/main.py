@@ -40,11 +40,12 @@ except Exception as e:
 
 app = FastAPI(title="Echo Companion Backend")
 
-# Setup CORS for development
+# Browsers reject wildcard origins when credentials are enabled. The API does
+# not use cookie authentication, so a wildcard origin is safe here.
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
-    allow_credentials=True,
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )

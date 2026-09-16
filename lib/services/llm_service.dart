@@ -128,67 +128,7 @@ $memoryText
       }
     }
 
-    final publicReply = await _tryPublicFallback(messages, userMessage, hasImage: hasImage);
-    if (publicReply.isNotEmpty) {
-      return publicReply;
-    }
-
-    return 'connection error: unable to reach the AI server. check the backend URL and provider configuration.';
-  }
-
-  static Future<String> _tryPublicFallback(List<Map<String, dynamic>> messages, String userMessage, {required bool hasImage}) async {
-    if (hasImage) {
-      return '';
-    }
-
-    final fallbackPayload = {
-      'messages': messages,
-      'model': 'openai',
-      'temperature': 0.7,
-      'max_tokens': 2048,
-      'seed': DateTime.now().millisecondsSinceEpoch,
-    };
-
-    final endpoints = [
-      'https://text.pollinations.ai/openai',
-      'https://text.pollinations.ai/',
-    ];
-
-    for (final endpoint in endpoints) {
-      try {
-        final response = await http
-            .post(
-              Uri.parse(endpoint),
-              headers: {'Content-Type': 'application/json'},
-              body: jsonEncode(fallbackPayload),
-            )
-            .timeout(const Duration(seconds: 20));
-
-        if (response.statusCode != 200) {
-          debugPrint('Public AI fallback failed for $endpoint: ${response.statusCode} ${response.body}');
-          continue;
-        }
-
-        final text = utf8.decode(response.bodyBytes).trim();
-        if (text.isEmpty) continue;
-
-        String? reply;
-        try {
-          final decoded = jsonDecode(text);
-          reply = _extractReply(decoded) ?? text;
-        } catch (_) {
-          reply = text;
-        }
-
-        if (reply.trim().isNotEmpty && !reply.toLowerCase().contains('error')) {
-          return reply.trim();
-        }
-      } catch (error) {
-        debugPrint('Public AI fallback exception for $endpoint: $error');
-      }
-    }
-
-    return '';
+    return 'connection error: the Echo AI backend is unavailable. configure ECHO_API_URL or start the local backend, then try again.';
   }
 
   static String? _extractReply(dynamic data) {
