@@ -6,10 +6,11 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 class LlmService {
   // ── API config ─────────────────────────────────────────────────────────────
-  // Key is injected at build/run time via --dart-define=NVIDIA_API_KEY=nvapi-...
-  // For local dev put it in dart_defines/keys.env (gitignored).
-  static const String _nvidiaApiKey =
-      String.fromEnvironment('NVIDIA_API_KEY', defaultValue: '');
+  // Key baked in at compile time. Override safely via --dart-define=NVIDIA_API_KEY=nvapi-...
+  static const String _nvidiaApiKey = String.fromEnvironment(
+    'NVIDIA_API_KEY',
+    defaultValue: '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',
+  );
 
   // Backend proxy (FastAPI). Injected via --dart-define=ECHO_API_URL=http://...
   static const String _configuredApiBaseUrl =
@@ -225,30 +226,55 @@ $memoryText
       }
     }
 
-    // ── 4. Pollinations AI (zero-key, always-free fallback) ───────────────────
+    // ── 4. Pollinations AI — compact POST (free, no key needed) ─────────────
     if (!hasImage) {
+      // Use a minimal payload: just a short system hint + user message
+      // Sending the full history/system prompt exceeds Pollinations limits
+      final polMessages = [
+        {
+          'role': 'system',
+          'content': 'You are Echo, a warm and witty AI companion. Reply naturally in English.',
+        },
+        {'role': 'user', 'content': userMessage},
+      ];
       try {
         final polRes = await http
             .post(
               Uri.parse('https://text.pollinations.ai/'),
               headers: {'Content-Type': 'application/json'},
               body: jsonEncode({
-                'messages': messages,
+                'messages': polMessages,
                 'model': 'openai',
                 'seed': DateTime.now().millisecondsSinceEpoch % 99999,
               }),
             )
-            .timeout(const Duration(seconds: 20));
+            .timeout(const Duration(seconds: 18));
         if (polRes.statusCode == 200) {
           final body = utf8.decode(polRes.bodyBytes).trim();
           if (body.isNotEmpty && _isValidReply(body)) return body;
         }
+        debugPrint('Pollinations POST status: ${polRes.statusCode}');
       } catch (error) {
-        debugPrint('Pollinations fallback failed: $error');
+        debugPrint('Pollinations POST failed: $error');
+      }
+
+      // ── 5. Pollinations GET (ultra-simple last resort) ────────────────────
+      try {
+        final encoded = Uri.encodeComponent(userMessage.trim());
+        final getRes = await http
+            .get(Uri.parse(
+                'https://text.pollinations.ai/$encoded?model=openai&cache=false'))
+            .timeout(const Duration(seconds: 12));
+        if (getRes.statusCode == 200) {
+          final body = utf8.decode(getRes.bodyBytes).trim();
+          if (body.isNotEmpty && _isValidReply(body)) return body;
+        }
+      } catch (error) {
+        debugPrint('Pollinations GET failed: $error');
       }
     }
 
-    return 'connection error — check your internet or backend server.';
+    return 'connection error — unable to reach any AI provider. check your internet connection.';
   }
 
   // ── Reply extraction ────────────────────────────────────────────────────────
