@@ -249,6 +249,23 @@ firebase deploy --only functions,hosting,firestore
 The Hosting rewrite sends `/api/chat` and `/api/extract-memory` to the
 `asia-south1` `echo_api` function, so web users do not need a local server.
 
+## Cloudflare Worker deployment (no Firebase Blaze)
+
+If Firebase Blaze is not available, deploy the free Cloudflare Worker in
+`worker/` instead. Create a Cloudflare account, then from the repository root:
+
+```powershell
+npm install -g wrangler
+wrangler login
+cd worker
+npx wrangler secret put NVIDIA_CHAT_KEY
+npx wrangler deploy
+```
+
+Copy the Worker URL and use it as `ECHO_API_URL` when building Echo. The Worker
+keeps the NVIDIA key server-side and exposes only `/api/chat` and
+`/api/extract-memory`.
+
 API credentials remain on the server side rather than being shipped with the client application.
 
 ---

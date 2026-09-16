@@ -27,6 +27,7 @@ migrate_working_dir/
 .pub/
 /build/
 /public/
+/worker/.wrangler/
 /coverage/
 
 # Symbolication / Obfuscation related
@@ -66,4 +67,3 @@ firebase_options.dart
 # Heap Dumps and Build Markers
 *.hprof
 .last_build_id
-
