@@ -9,7 +9,7 @@ class LlmService {
   // Key baked in at compile time. Override safely via --dart-define=NVIDIA_API_KEY=nvapi-...
   static const String _nvidiaApiKey = String.fromEnvironment(
     'NVIDIA_API_KEY',
-    defaultValue: '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',
+    defaultValue: '',
   );
 
   // Backend proxy (FastAPI). Injected via --dart-define=ECHO_API_URL=http://...
@@ -154,15 +154,7 @@ $memoryText
     };
 
     // ══════════════════════════════════════════════════════════════════════════
-    // WEB PATH — browser CORS blocks NVIDIA + localhost + Pollinations POST.
-    // Only safe option on web is Pollinations GET (no preflight, CORS-free).
-    // ══════════════════════════════════════════════════════════════════════════
-    if (kIsWeb) {
-      return _pollinationsGet(userMessage, profile, history);
-    }
-
-    // ══════════════════════════════════════════════════════════════════════════
-    // NATIVE PATH (Android / iOS / Windows / macOS / Linux) — full chain
+    // NATIVE & WEB PATH — full chain
     // ══════════════════════════════════════════════════════════════════════════
 
     // ── 1. Local FastAPI backend proxy ────────────────────────────────────────
