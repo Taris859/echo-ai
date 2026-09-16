@@ -259,24 +259,31 @@ def api_extract_memory_proxy(req: APIExtractMemoryRequest):
         "model": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning",
         "messages": [
             {"role": "system", "content": req.system_prompt},
-            {"role": "user", "content": f"Analyze: '{req.user_message}'"}
+            {"role": "user", "content": f"Analyze and respond with ONLY a raw JSON object: '{req.user_message}'"}
         ],
         "temperature": 0.1,
-        "response_format": {"type": "json_object"}
+        "max_tokens": 512,
+        "reasoning_budget": 256,
     }
     try:
         res = requests.post("https://integrate.api.nvidia.com/v1/chat/completions", json=payload, headers=headers, timeout=25)
         if res.status_code == 200:
-            content = res.json()["choices"][0]["message"]["content"]
-            cleaned = content.strip()
-            if cleaned.startswith("```json"):
-                cleaned = cleaned[7:]
-            if cleaned.startswith("```"):
-                cleaned = cleaned[3:]
-            if cleaned.endswith("```"):
-                cleaned = cleaned[:-3]
-            cleaned = cleaned.strip()
+            msg = res.json()["choices"][0]["message"]
+            # Reasoning models may return content or reasoning field
+            raw = msg.get("content") or msg.get("reasoning") or msg.get("reasoning_content") or ""
+            cleaned = raw.strip()
+            # Strip markdown code fences if present
+            if "```json" in cleaned:
+                cleaned = cleaned.split("```json")[1].split("```")[0].strip()
+            elif "```" in cleaned:
+                cleaned = cleaned.split("```")[1].split("```")[0].strip()
+            # Extract first JSON object
+            start = cleaned.find("{")
+            end = cleaned.rfind("}")
+            if start != -1 and end != -1:
+                cleaned = cleaned[start:end+1]
             return json.loads(cleaned)
+        print(f"extract-memory NVIDIA error {res.status_code}: {res.text[:200]}")
     except Exception as e:
         print(f"API extract memory proxy error: {e}")
     return {}

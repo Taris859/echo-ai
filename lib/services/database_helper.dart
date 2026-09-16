@@ -1,6 +1,6 @@
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/foundation.dart' show debugPrint, kIsWeb;
 
 class DatabaseHelper {
   static final DatabaseHelper instance = DatabaseHelper._init();
@@ -131,19 +131,19 @@ class DatabaseHelper {
       try {
         await db.execute('ALTER TABLE chat_sessions ADD COLUMN is_pinned INTEGER DEFAULT 0');
       } catch (e) {
-        print("Column is_pinned already exists or failed to add: $e");
+        debugPrint("Column is_pinned already exists or failed to add: $e");
       }
       try {
         await db.execute('ALTER TABLE chat_sessions ADD COLUMN is_archived INTEGER DEFAULT 0');
       } catch (e) {
-        print("Column is_archived already exists or failed to add: $e");
+        debugPrint("Column is_archived already exists or failed to add: $e");
       }
     }
     if (oldVersion < 4) {
       try {
         await db.execute('ALTER TABLE chat_sessions ADD COLUMN title TEXT');
       } catch (e) {
-        print("Column title already exists or failed to add: $e");
+        debugPrint("Column title already exists or failed to add: $e");
       }
     }
   }
@@ -316,7 +316,7 @@ class DatabaseHelper {
       ''', [userId]);
       return result;
     } catch (e) {
-      print("Error in getChatSessions, executing fallback: $e");
+      debugPrint("Error in getChatSessions, executing fallback: $e");
       try {
         final result = await db.rawQuery('''
           SELECT s.id as session_id, s.created_at, s.is_pinned, s.is_archived,
@@ -330,7 +330,7 @@ class DatabaseHelper {
         ''', [userId]);
         return result;
       } catch (err) {
-        print("Fallback getChatSessions error: $err");
+        debugPrint("Fallback getChatSessions error: $err");
         return [];
       }
     }

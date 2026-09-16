@@ -192,7 +192,7 @@ class _ChatScreenState extends State<ChatScreen> {
                 'sender': 'echo',
                 'text': replyText,
                 'timestamp': DateTime.now().toIso8601String(),
-              }).catchError((e) => print("DB Error saving AI response: $e"));
+              }).catchError((e) => debugPrint("DB Error saving AI response: $e"));
 
               if (event["new_fact_learned"] != null) {
                 _fetchVaultMemories(); // Refresh memories list
@@ -240,7 +240,7 @@ class _ChatScreenState extends State<ChatScreen> {
         _profile = profile;
       });
     } catch (e) {
-      print("Failed to fetch profile: $e");
+      debugPrint("Failed to fetch profile: $e");
     }
   }
 
@@ -251,7 +251,7 @@ class _ChatScreenState extends State<ChatScreen> {
         _vaultMemories = memories;
       });
     } catch (e) {
-      print("Failed to fetch vault: $e");
+      debugPrint("Failed to fetch vault: $e");
     }
   }
 
@@ -262,7 +262,7 @@ class _ChatScreenState extends State<ChatScreen> {
         _chatSessions = sessions;
       });
     } catch (e) {
-      print("Failed to fetch sessions: $e");
+      debugPrint("Failed to fetch sessions: $e");
     }
   }
 
@@ -282,7 +282,7 @@ class _ChatScreenState extends State<ChatScreen> {
       });
       _scrollToBottom();
     } catch (e) {
-      print("Failed to load session messages: $e");
+      debugPrint("Failed to load session messages: $e");
     }
   }
 
@@ -402,7 +402,7 @@ class _ChatScreenState extends State<ChatScreen> {
         });
       }
     } catch (e) {
-      print("Error picking image: $e");
+      debugPrint("Error picking image: $e");
     }
   }
 
@@ -447,7 +447,7 @@ class _ChatScreenState extends State<ChatScreen> {
         'timestamp': DateTime.now().toIso8601String(),
       });
     } catch (e) {
-      print("Local DB Error saving user message: $e");
+      debugPrint("Local DB Error saving user message: $e");
     }
 
     // 1. Scan SQLite memories matching text for contextual RAG injection
@@ -465,7 +465,7 @@ class _ChatScreenState extends State<ChatScreen> {
         }
       }
     } catch (e) {
-      print("Local DB Error scanning memories: $e");
+      debugPrint("Local DB Error scanning memories: $e");
     }
 
     // 2. Extract conversation history thread
@@ -502,7 +502,7 @@ class _ChatScreenState extends State<ChatScreen> {
         'timestamp': DateTime.now().toIso8601String(),
       });
     } catch (e) {
-      print("Local DB Error saving AI message: $e");
+      debugPrint("Local DB Error saving AI message: $e");
     }
 
     // Auto-generate AI Title for new session on first message
@@ -536,7 +536,7 @@ class _ChatScreenState extends State<ChatScreen> {
           });
           if (mounted) await _fetchVaultMemories();
         } catch (e) {
-          print("Local DB Error saving extracted vault fact: $e");
+          debugPrint("Local DB Error saving extracted vault fact: $e");
         }
       }
     });

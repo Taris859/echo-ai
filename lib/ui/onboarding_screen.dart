@@ -100,7 +100,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         );
       }
     } catch (e) {
-      print("Google Auth Flow Exception (Auto-proceeding to local companion profile): $e");
+      debugPrint("Google Auth Flow Exception (Auto-proceeding to local companion profile): $e");
       if (mounted) {
         await _proceedWithLocalProfile();
       }
@@ -140,7 +140,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         );
       }
     } catch (e) {
-      print("Local Profile Fallback Error: $e");
+      debugPrint("Local Profile Fallback Error: $e");
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text("Failed to create local profile: $e")),
