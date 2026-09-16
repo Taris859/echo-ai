@@ -35,7 +35,7 @@ jobs:
 
       - name: Build Web App
         run: |
-          flutter build web --release --base-href "/echo-ai/"
+          flutter build web --release --base-href "/echo-ai/" --dart-define=ECHO_API_URL="${{ vars.ECHO_API_URL || secrets.ECHO_API_URL }}"
           cp build/web/index.html build/web/404.html
 
       - name: Upload Pages Artifact

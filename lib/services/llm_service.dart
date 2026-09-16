@@ -1,6 +1,6 @@
 import 'dart:convert';
 
-import 'package:flutter/foundation.dart' show debugPrint, defaultTargetPlatform, TargetPlatform;
+import 'package:flutter/foundation.dart' show debugPrint, defaultTargetPlatform, TargetPlatform, kIsWeb;
 import 'package:http/http.dart' as http;
 
 class LlmService {
@@ -12,12 +12,18 @@ class LlmService {
     final configured = _configuredApiBaseUrl.trim().replaceFirst(RegExp(r'/$'), '');
     final urls = <String>[];
     if (configured.isNotEmpty) urls.add(configured);
+    if (kIsWeb) {
+      final origin = Uri.base.origin;
+      if (origin != 'null' && origin != 'file://') {
+        urls.add('$origin/api');
+      }
+    }
     if (defaultTargetPlatform == TargetPlatform.android) {
       urls.addAll(['http://10.0.2.2:8000', 'http://127.0.0.1:8000']);
     } else {
       urls.addAll(['http://127.0.0.1:8000', 'http://localhost:8000']);
     }
-    return urls.toSet().toList();
+    return urls.where((url) => url.startsWith('https://') || url.startsWith('http://')).toSet().toList();
   }
 
   static String getSystemPrompt(

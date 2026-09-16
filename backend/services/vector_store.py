@@ -4,7 +4,9 @@ import os
 import requests
 
 class VectorStore:
-    def __init__(self, storage_path="E:/Echo_AI_APP/backend/data/vector_store.json"):
+    def __init__(self, storage_path=None):
+        if storage_path is None:
+            storage_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data", "vector_store.json")
         self.storage_path = storage_path
         self.data = [] # List of dicts: {"text": str, "vector": list, "metadata": dict}
         self.api_key = os.getenv("NVIDIA_EMBED_KEY", "")

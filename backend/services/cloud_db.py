@@ -8,7 +8,9 @@ from Crypto.Cipher import AES
 from Crypto.Util.Padding import pad, unpad
 
 class CloudDB:
-    def __init__(self, db_path="E:/Echo_AI_APP/backend/data/echo_memory.db"):
+    def __init__(self, db_path=None):
+        if db_path is None:
+            db_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data", "echo_memory.db")
         self.db_path = db_path
         os.makedirs(os.path.dirname(self.db_path), exist_ok=True)
         self.supabase_url = os.getenv("SUPABASE_URL", "")

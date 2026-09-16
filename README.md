@@ -226,6 +226,13 @@ When the backend is deployed remotely, build the Flutter app with its HTTPS base
 flutter build web --release --dart-define=ECHO_API_URL=https://your-backend.example.com --base-href "/echo-ai/"
 ```
 
+The repository includes [render.yaml](./render.yaml) for deploying the backend on
+Render. After deployment, copy its HTTPS URL into the GitHub repository variable
+`ECHO_API_URL` (or secret with the same name), then run the Pages workflow again.
+The same `ECHO_API_URL` can be passed when building Android, iOS, Windows, macOS,
+or Linux releases. Do not use `localhost`, `127.0.0.1`, or `10.0.2.2` in a
+production build.
+
 The GitHub Pages workflow deploys the static web app only. It does not expose server
 environment variables, so the backend must be deployed separately with
 `NVIDIA_CHAT_KEY` configured.
