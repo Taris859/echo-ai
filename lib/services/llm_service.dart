@@ -4,10 +4,10 @@ import 'package:http/http.dart' as http;
 import 'package:flutter/foundation.dart' show defaultTargetPlatform, TargetPlatform;
 
 class LlmService {
-  static const String _nvidiaChatKey = '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';
+  static const String _nvidiaChatKey = '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';
 
-  // Cloudflare Worker Proxy URL (Set this to your deployed worker URL to bypass CORS on Web & secure API keys)
-  static const String _proxyUrl = 'https://echo-proxy.taris859.workers.dev';
+  // Cloudflare Worker Proxy URL (leave empty to go direct to NVIDIA NIM)
+  static const String _proxyUrl = '';
 
   static List<String> get _backendBaseUrls {
     if (defaultTargetPlatform == TargetPlatform.android) {
@@ -212,13 +212,15 @@ GOLDEN PERSONA EXAMPLES:
 
     messages.add({'role': 'user', 'content': userContent});
 
-    const modelName = 'meta/llama-3.2-11b-vision-instruct';
+    const modelName = 'deepseek-ai/deepseek-v4-flash-0731';
 
     final Map<String, dynamic> payload = {
       'model': modelName,
       'messages': messages,
       'temperature': 0.7,
-      'max_tokens': 1500,
+      'top_p': 0.95,
+      'max_tokens': 2048,
+      'chat_template_kwargs': {'thinking': true, 'reasoning_effort': 'low'},
     };
 
     // Fast check if local backend is active (only for text-only messages, bypass for image vision requests)
@@ -406,7 +408,7 @@ GOLDEN PERSONA EXAMPLES:
         Uri.parse(targetEndpoint),
         headers: headers,
         body: json.encode({
-          'model': 'meta/llama-3.2-11b-vision-instruct',
+          'model': 'deepseek-ai/deepseek-v4-flash-0731',
           'messages': [
             {
               'role': 'system',

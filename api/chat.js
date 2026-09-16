@@ -7,7 +7,7 @@ export default async function handler(req, res) {
     return res.status(200).end();
   }
 
-  const chatKey = process.env.NVIDIA_CHAT_KEY || "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";
+  const chatKey = process.env.NVIDIA_CHAT_KEY || "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";
   const body = req.body || {};
 
   try {
