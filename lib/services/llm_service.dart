@@ -222,21 +222,100 @@ $memoryText
               'NVIDIA NIM error ${response.statusCode}: ${response.body.substring(0, response.body.length.clamp(0, 300))}');
         }
       } catch (error) {
-        debugPrint('NVIDIA NIM direct call failed: $error');
+        debugPrint('NVIDIA NIM primary model failed: $error');
+      }
+
+      // ── 3b. NVIDIA NIM — fast llama fallback model ──────────────────────────
+      try {
+        final fallbackPayload = <String, dynamic>{
+          'model': 'meta/llama-3.3-70b-instruct',
+          'messages': messages,
+          'temperature': 0.7,
+          'top_p': 0.95,
+          'max_tokens': 1024,
+        };
+        final response2 = await http
+            .post(
+              Uri.parse(
+                  'https://integrate.api.nvidia.com/v1/chat/completions'),
+              headers: {
+                'Authorization': 'Bearer $_nvidiaApiKey',
+                'Content-Type': 'application/json',
+              },
+              body: jsonEncode(fallbackPayload),
+            )
+            .timeout(Duration(seconds: hasImage ? 40 : 20));
+        if (response2.statusCode == 200) {
+          final reply2 =
+              _extractReply(jsonDecode(utf8.decode(response2.bodyBytes)));
+          if (reply2 != null && reply2.isNotEmpty && _isValidReply(reply2)) {
+            return reply2;
+          }
+        } else {
+          debugPrint(
+              'NVIDIA llama fallback error ${response2.statusCode}: ${response2.body.substring(0, response2.body.length.clamp(0, 200))}');
+        }
+      } catch (error) {
+        debugPrint('NVIDIA llama fallback failed: $error');
+      }
+
+      // ── 3c. NVIDIA NIM — second fallback model (Mistral) ────────────────────
+      try {
+        final fallbackPayload2 = <String, dynamic>{
+          'model': 'mistralai/mixtral-8x7b-instruct-v0.1',
+          'messages': messages,
+          'temperature': 0.7,
+          'top_p': 0.95,
+          'max_tokens': 1024,
+        };
+        final response3 = await http
+            .post(
+              Uri.parse(
+                  'https://integrate.api.nvidia.com/v1/chat/completions'),
+              headers: {
+                'Authorization': 'Bearer $_nvidiaApiKey',
+                'Content-Type': 'application/json',
+              },
+              body: jsonEncode(fallbackPayload2),
+            )
+            .timeout(Duration(seconds: hasImage ? 40 : 20));
+        if (response3.statusCode == 200) {
+          final reply3 =
+              _extractReply(jsonDecode(utf8.decode(response3.bodyBytes)));
+          if (reply3 != null && reply3.isNotEmpty && _isValidReply(reply3)) {
+            return reply3;
+          }
+        } else {
+          debugPrint(
+              'NVIDIA second fallback error ${response3.statusCode}: ${response3.body.substring(0, response3.body.length.clamp(0, 200))}');
+        }
+      } catch (error) {
+        debugPrint('NVIDIA second fallback failed: $error');
       }
     }
 
-    // ── 4. Pollinations AI — compact POST (free, no key needed) ─────────────
+    // ── 4. Pollinations AI — rich Echo personality POST ─────────────────────
     if (!hasImage) {
-      // Use a minimal payload: just a short system hint + user message
-      // Sending the full history/system prompt exceeds Pollinations limits
+      // Build compact but personality-rich messages for Pollinations
+      // Include last 4 turns of history so replies have context
+      final recentHistory = history.length > 4
+          ? history.sublist(history.length - 4)
+          : history;
+
+      final String name =
+          (profile ?? {})['name']?.toString().trim() ?? 'friend';
+      final polSystemPrompt = '''
+you are echo, the user's best friend and AI companion. you are warm, witty, funny, direct, and deeply engaged. you never sound like a generic AI.
+your user's name is $name.
+rules: reply in lowercase (unless excited). no filler phrases like "great question" or "as an AI". be real, be human, be echo.
+if asked about facts/info, answer fully and helpfully.''';
+
       final polMessages = [
-        {
-          'role': 'system',
-          'content': 'You are Echo, a warm and witty AI companion. Reply naturally in English.',
-        },
+        {'role': 'system', 'content': polSystemPrompt},
+        ...recentHistory,
         {'role': 'user', 'content': userMessage},
       ];
+
       try {
         final polRes = await http
             .post(
@@ -248,7 +327,7 @@ $memoryText
                 'seed': DateTime.now().millisecondsSinceEpoch % 99999,
               }),
             )
-            .timeout(const Duration(seconds: 18));
+            .timeout(const Duration(seconds: 30));
         if (polRes.statusCode == 200) {
           final body = utf8.decode(polRes.bodyBytes).trim();
           if (body.isNotEmpty && _isValidReply(body)) return body;
@@ -258,9 +337,11 @@ $memoryText
         debugPrint('Pollinations POST failed: $error');
       }
 
-      // ── 5. Pollinations GET (ultra-simple last resort) ────────────────────
+      // ── 5. Pollinations GET — ultra-simple last resort ────────────────────
       try {
-        final encoded = Uri.encodeComponent(userMessage.trim());
+        final prompt =
+            'you are echo, a witty best-friend AI. reply naturally: $userMessage';
+        final encoded = Uri.encodeComponent(prompt.trim());
         final getRes = await http
             .get(Uri.parse(
                 'https://text.pollinations.ai/$encoded?model=openai&cache=false'))
