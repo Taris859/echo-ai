@@ -30,19 +30,13 @@ jobs:
       - name: Install Dependencies
         run: flutter pub get
 
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+
       - name: Build Web App
         run: |
           flutter build web --release --base-href "/echo-ai/"
           cp build/web/index.html build/web/404.html
-
-      - name: Push to gh-pages Branch
-        uses: peaceiris/actions-gh-pages@v4
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./build/web
-
-      - name: Setup Pages
-        uses: actions/configure-pages@v5
 
       - name: Upload Pages Artifact
         uses: actions/upload-pages-artifact@v3
@@ -52,4 +46,3 @@ jobs:
       - name: Deploy to GitHub Pages (Native)
         id: deployment
         uses: actions/deploy-pages@v4
-
