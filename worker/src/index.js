@@ -1,6 +1,6 @@
 const NVIDIA_URL = 'https://integrate.api.nvidia.com/v1/chat/completions';
 const ALLOWED_MODELS = new Set([
-  'meta/llama-3.3-70b-instruct',
+  'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning',
   'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning',
 ]);
 
@@ -25,7 +25,7 @@ function providerPayload(body) {
 
   const model = ALLOWED_MODELS.has(body.model)
     ? body.model
-    : 'meta/llama-3.3-70b-instruct';
+    : 'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning';
   const temperature = Number(body.temperature);
   const maxTokens = Number(body.max_tokens);
 
@@ -46,14 +46,26 @@ async function callProvider(payload, env) {
     const response = await fetch(NVIDIA_URL, {
       method: 'POST',
       headers: {
-        Authorization: `Bearer ${env.NVIDIA_CHAT_KEY}`,
+        Authorization: `Bearer ${env.NVIDIA_CHAT_KEY.trim()}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify(payload),
     });
-    const data = await response.json();
+    const data = await response.json().catch(() => ({}));
     if (!response.ok) {
-      return json({ error: 'AI provider request failed' }, 502);
+      const providerMessage = typeof data?.detail === 'string'
+        ? data.detail.slice(0, 240)
+        : typeof data?.message === 'string'
+          ? data.message.slice(0, 240)
+          : typeof data?.error === 'string'
+            ? data.error.slice(0, 240)
+            : 'provider rejected the request';
+      console.error('NVIDIA provider rejected request', response.status, providerMessage);
+      return json({
+        error: 'AI provider request failed',
+        provider_status: response.status,
+        provider_message: providerMessage,
+      }, 502);
     }
     const reply = data?.choices?.[0]?.message?.content;
     return typeof reply === 'string' && reply.trim()
@@ -68,9 +80,9 @@ async function callProvider(payload, env) {
 export default {
   async fetch(request, env) {
     if (request.method === 'OPTIONS') return json({}, 204);
-    if (request.method !== 'POST') return json({ error: 'method not allowed' }, 405);
 
     const url = new URL(request.url);
+    if (request.method !== 'POST') return json({ error: 'method not allowed' }, 405);
     if (url.pathname !== '/api/chat' && url.pathname !== '/api/extract-memory') {
       return json({ error: 'unknown API route' }, 404);
     }
@@ -88,7 +100,7 @@ export default {
         return json({ error: 'invalid memory request' }, 400);
       }
       body = {
-        model: 'meta/llama-3.3-70b-instruct',
+        model: 'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning',
         messages: [
           { role: 'system', content: String(body.system_prompt || '').slice(0, 12000) },
           {
