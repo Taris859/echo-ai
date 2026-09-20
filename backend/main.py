@@ -202,11 +202,10 @@ async def websocket_chat(websocket: WebSocket, user_id: str = "default_user"):
 
 class APIChatRequest(BaseModel):
     messages: list
-    model: str = "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning"
+    model: str = "meta/llama-3.2-11b-vision-instruct"
     temperature: float = 0.6
     top_p: float = 0.95
     max_tokens: int = 4096
-    reasoning_budget: int = 2048
 
 class APIExtractMemoryRequest(BaseModel):
     user_message: str
@@ -230,7 +229,6 @@ def api_chat_proxy(req: APIChatRequest):
         "temperature": req.temperature,
         "top_p": req.top_p,
         "max_tokens": req.max_tokens,
-        "reasoning_budget": req.reasoning_budget,
     }
     try:
         res = requests.post("https://integrate.api.nvidia.com/v1/chat/completions", json=payload, headers=headers, timeout=60)
@@ -256,14 +254,13 @@ def api_extract_memory_proxy(req: APIExtractMemoryRequest):
         "Content-Type": "application/json"
     }
     payload = {
-        "model": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning",
+        "model": "meta/llama-3.2-11b-vision-instruct",
         "messages": [
             {"role": "system", "content": req.system_prompt},
             {"role": "user", "content": f"Analyze and respond with ONLY a raw JSON object: '{req.user_message}'"}
         ],
         "temperature": 0.1,
         "max_tokens": 512,
-        "reasoning_budget": 256,
     }
     try:
         res = requests.post("https://integrate.api.nvidia.com/v1/chat/completions", json=payload, headers=headers, timeout=25)
