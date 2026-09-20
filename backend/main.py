@@ -218,7 +218,28 @@ def api_chat_proxy(req: APIChatRequest):
     chat_key = os.getenv("NVIDIA_CHAT_KEY", "")
     if not chat_key:
         return {"reply": "sorry, my mind is blanking right now. check your connection tbh."}
-    
+        
+    last_message = ""
+    for msg in reversed(req.messages):
+        if msg.get("role") == "user":
+            if isinstance(msg.get("content"), str):
+                last_message = msg["content"]
+            elif isinstance(msg.get("content"), list):
+                for item in msg["content"]:
+                    if item.get("type") == "text":
+                        last_message = item.get("text", "")
+            break
+
+    if last_message and llm_client.detect_search_intent(last_message):
+        search_results = research_engine.search_web(last_message)[:3]
+        if search_results:
+            source_text = "\n".join([f"Source: {r['url']}\nSnippet: {r['snippet'][:300]}" for r in search_results])
+            for msg in reversed(req.messages):
+                if msg.get("role") == "user":
+                    if isinstance(msg.get("content"), str):
+                        msg["content"] = f"User Question: '{last_message}'\n\nVerified Search Results:\n{source_text}\n\nAnswer the question using the provided search results, but KEEP your Gen Z best friend persona! Do NOT sound like a search engine."
+                    break
+
     headers = {
         "Authorization": f"Bearer {chat_key}",
         "Content-Type": "application/json"
