@@ -65,13 +65,12 @@ class MemoryManager:
         """
 
         payload = {
-            "model": "nvidia/nemotron-3-ultra-550b-a55b",
+            "model": "meta/llama-3.2-11b-vision-instruct",
             "messages": [
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": f"Analyze: '{user_message}'"}
             ],
             "temperature": 0.1,
-            "response_format": {"type": "json_object"}
         }
 
         try:
