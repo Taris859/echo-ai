@@ -58,6 +58,7 @@ class _ChatScreenState extends State<ChatScreen> {
   Map<String, dynamic> _profile = {"name": "friend", "age": 0, "gender": "unknown", "bio": ""};
   String _activeAccentTheme = 'Neon Lime';
   String _activeAppMode = 'Dark Mode';
+  bool _activeAdult = false;
 
   bool get _isLightMode => _activeAppMode == 'Light Mode';
   Color get _bgColor => _isLightMode ? const Color(0xFFF8F9FA) : const Color(0xFF09090D);
@@ -132,6 +133,7 @@ class _ChatScreenState extends State<ChatScreen> {
       _currentSessionId = activeSessionId;
       _activeAccentTheme = _prefs.getString('echo_accent_theme') ?? 'Neon Lime';
       _activeAppMode = _prefs.getString('echo_app_mode') ?? 'Dark Mode';
+      _activeAdult = _prefs.getBool('echo_adult') ?? false;
     });
 
     _connectWebSocket();
@@ -491,6 +493,7 @@ class _ChatScreenState extends State<ChatScreen> {
       history: historyPayload,
       imageBase64: imageBase64,
       imageMimeType: imageMimeType,
+      isAdultMode: _activeAdult,
     );
 
     // Always persist AI response to SQLite database regardless of UI state
@@ -1486,7 +1489,7 @@ class _ChatScreenState extends State<ChatScreen> {
                                     (message["text"] ?? "") + (message["is_typing"] == true ? " ▌" : ""),
                                     style: GoogleFonts.outfit(
                                       fontSize: 15.5,
-                                      color: Colors.white,
+                                      color: isEcho && _isLightMode ? Colors.black : Colors.white,
                                       fontWeight: isEcho ? FontWeight.w400 : FontWeight.w500,
                                       height: 1.38,
                                     ),

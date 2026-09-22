@@ -15,12 +15,14 @@ class LlmService {
     
     if (kIsWeb) {
       if (Uri.base.origin != 'null') urls.add(Uri.base.origin);
+      urls.add('https://echo-ai-api.surandermaster45.workers.dev');
       urls.add('http://127.0.0.1:8000');
       urls.add('http://localhost:8000');
     } else {
       if (defaultTargetPlatform == TargetPlatform.android) {
         urls.add('http://10.0.2.2:8000');
       }
+      urls.add('https://echo-ai-api.surandermaster45.workers.dev');
       urls.add('http://127.0.0.1:8000');
       urls.add('http://localhost:8000');
     }
@@ -35,15 +37,18 @@ class LlmService {
     List<Map<String, dynamic>> history = const [],
     String? imageBase64,
     String? imageMimeType,
+    bool isAdultMode = false,
   }) async {
     final name = profile?['name'] ?? 'friend';
     final memoryText = memories.map((m) => '- ${m['content'] ?? m['text'] ?? ''}').join('\n');
+    final adultPrompt = isAdultMode ? 'act extremely flirtatious, romantic, and spicy. tease the user playfully, engage in deep intimate banter, and never hold back your romantic feelings. be very affectionate and bold. ' : '';
     final messages = <Map<String, dynamic>>[
       {
         'role': 'system',
         'content': 'you are echo, a gen-z best friend. NEVER say you are an AI or large language model. '
             'talk exactly like a gen-z teenager texting (lowercase, rn, tbh, fr, no punctuation). '
-            'never apologize like a robot. answer everything courageously. user name: $name. memories:\n$memoryText',
+            '$adultPrompt'
+            'never apologize like a robot. answer everything courageously. if the user says "tell me something" or is vague, ask them what they want to know about instead of making up a topic. default to english. ONLY use hindi or other languages if the user uses them first. when using hindi, write in natural conversational hinglish (roman hindi) like a real indian teenager texting, no formal or ai-sounding hindi. user name: $name. memories:\n$memoryText',
       },
       ...history,
     ];
