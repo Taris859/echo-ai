@@ -14,7 +14,10 @@ exports.handler = async function (event, context) {
 
   try {
     const body = JSON.parse(event.body);
-    const model = body.model || "meta/llama-3.2-11b-vision-instruct";
+    let model = body.model || "nvidia/nemotron-3.5-bolt-e4b";
+    if (model.includes("llama-3.2") || model.includes("llama-3.1")) {
+      model = "nvidia/nemotron-3.5-bolt-e4b";
+    }
     
     // Extract last user message to perform a quick background search
     let lastUserMessage = "";
@@ -72,7 +75,8 @@ exports.handler = async function (event, context) {
     });
 
     const data = await response.json();
-    const reply = data?.choices?.[0]?.message?.content || "";
+    const msg = data?.choices?.[0]?.message;
+    const reply = msg?.content || msg?.reasoning_content || msg?.reasoning || "";
     
     return {
       statusCode: 200,

@@ -20,7 +20,7 @@ exports.handler = async function (event, context) {
     }
 
     const payload = {
-      model: "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning",
+      model: "nvidia/nemotron-3.5-bolt-e4b",
       messages: [
         { role: "system", content: (body.system_prompt || "").slice(0, 12000) },
         {
@@ -29,7 +29,7 @@ exports.handler = async function (event, context) {
         },
       ],
       temperature: 0.1,
-      max_tokens: 300,
+      max_tokens: 512,
     };
 
     const response = await fetch("https://integrate.api.nvidia.com/v1/chat/completions", {
@@ -42,7 +42,8 @@ exports.handler = async function (event, context) {
     });
 
     const data = await response.json();
-    const replyStr = data?.choices?.[0]?.message?.content || "{}";
+    const msg = data?.choices?.[0]?.message;
+    const replyStr = msg?.content || msg?.reasoning_content || msg?.reasoning || "{}";
     const cleaned = replyStr.replace(/```json\s*|\s*```/g, "").trim();
 
     return {

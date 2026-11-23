@@ -95,8 +95,9 @@ Remember: Be extremely casual. Talk like you're texting on iMessage.
             "Authorization": f"Bearer {chat_key}",
             "Content-Type": "application/json"
         }
+        chosen_model = "nvidia/nemotron-3.5-super-vl-120b-a12b" if image_base64 else "nvidia/nemotron-3.5-bolt-e4b"
         payload = {
-            "model": "meta/llama-3.2-11b-vision-instruct",
+            "model": chosen_model,
             "messages": messages,
             "temperature": 0.7,
             "max_tokens": 1000
@@ -105,14 +106,9 @@ Remember: Be extremely casual. Talk like you're texting on iMessage.
         try:
             response = requests.post(self.llm_url, json=payload, headers=headers, timeout=30)
             if response.status_code == 200:
-                draft_response = response.json()["choices"][0]["message"]["content"]
-                
-                # Zero-Hallucination Guard (Disabled slow factuality checking to make answers blazing fast!)
-                # if needs_search:
-                #     is_valid = self.verify_factuality(draft_response, source_text)
-                #     ...
-                
-                return draft_response, recalled, search_results, confidence_score
+                msg_choice = response.json()["choices"][0]["message"]
+                draft_response = msg_choice.get("content") or msg_choice.get("reasoning_content") or msg_choice.get("reasoning") or ""
+                return draft_response.strip(), recalled, search_results, confidence_score
             else:
                 print(f"LLM API failed: {response.text}")
         except Exception as e:

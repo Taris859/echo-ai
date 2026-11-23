@@ -12,7 +12,9 @@ set_global_options(max_instances=10, region="asia-south1")
 NVIDIA_CHAT_KEY = SecretParam("NVIDIA_CHAT_KEY")
 NVIDIA_URL = "https://integrate.api.nvidia.com/v1/chat/completions"
 ALLOWED_MODELS = {
+    "nvidia/nemotron-3.5-bolt-e4b",
     "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning",
+    "nvidia/nemotron-3.5-super-vl-120b-a12b",
     "meta/llama-3.3-70b-instruct",
 }
 
@@ -52,9 +54,9 @@ def echo_api(req: https_fn.Request) -> https_fn.Response:
     if not isinstance(messages, list) or not messages or len(messages) > 30:
         return _json_response({"error": "messages must be a non-empty list"}, 400)
 
-    model = body.get("model", "meta/llama-3.3-70b-instruct")
+    model = body.get("model", "nvidia/nemotron-3.5-bolt-e4b")
     if model not in ALLOWED_MODELS:
-        model = "meta/llama-3.3-70b-instruct"
+        model = "nvidia/nemotron-3.5-bolt-e4b"
 
     payload = {
         "model": model,
@@ -82,10 +84,11 @@ def _provider_request(payload: dict[str, Any]) -> https_fn.Response:
             data = {"error": "AI provider returned invalid JSON"}
         if response.status_code != 200:
             return _json_response({"error": "AI provider request failed", "provider_status": response.status_code}, 502)
-        content = data.get("choices", [{}])[0].get("message", {}).get("content", "")
+        msg = data.get("choices", [{}])[0].get("message", {})
+        content = msg.get("content") or msg.get("reasoning_content") or msg.get("reasoning") or ""
         if not content:
             return _json_response({"error": "AI provider returned an empty response"}, 502)
-        return _json_response({"reply": content})
+        return _json_response({"reply": content.strip()})
     except requests.RequestException:
         return _json_response({"error": "AI provider request failed"}, 502)
 
@@ -97,13 +100,13 @@ def _extract_memory(body: dict[str, Any]) -> https_fn.Response:
     if not user_message or len(user_message) > 12000:
         return _json_response({"error": "invalid memory request"}, 400)
     payload = {
-        "model": "meta/llama-3.3-70b-instruct",
+        "model": "nvidia/nemotron-3.5-bolt-e4b",
         "messages": [
             {"role": "system", "content": system_prompt[:12000]},
             {"role": "user", "content": f"Recalled memories:\n{context[:12000]}\n\nUser message:\n{user_message}"},
         ],
         "temperature": 0.1,
-        "max_tokens": 300,
+        "max_tokens": 512,
         "response_format": {"type": "json_object"},
     }
     response = _provider_request(payload)

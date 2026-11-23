@@ -1,16 +1,23 @@
 const NVIDIA_URL = 'https://integrate.api.nvidia.com/v1/chat/completions';
 const ALLOWED_MODELS = new Set([
+  'nvidia/nemotron-3.5-bolt-e4b',
   'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning',
-  'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning',
+  'nvidia/nemotron-3.5-lightning-30b-a3b',
+  'nvidia/nemotron-3.5-super-vl-120b-a12b',
 ]);
+
+const CORS_HEADERS = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization, User-Agent',
+  'Access-Control-Max-Age': '86400',
+};
 
 function json(data, status = 200) {
   return new Response(JSON.stringify(data), {
     status,
     headers: {
-      'Access-Control-Allow-Origin': '*',
-      'Access-Control-Allow-Methods': 'POST, OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type',
+      ...CORS_HEADERS,
       'Cache-Control': 'no-store',
       'Content-Type': 'application/json',
     },
@@ -25,7 +32,7 @@ function providerPayload(body) {
 
   const model = ALLOWED_MODELS.has(body.model)
     ? body.model
-    : 'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning';
+    : 'nvidia/nemotron-3.5-bolt-e4b';
   const temperature = Number(body.temperature);
   const maxTokens = Number(body.max_tokens);
 
@@ -67,7 +74,8 @@ async function callProvider(payload, env) {
         provider_message: providerMessage,
       }, 502);
     }
-    const reply = data?.choices?.[0]?.message?.content;
+    const message = data?.choices?.[0]?.message;
+    const reply = message?.content || message?.reasoning_content || message?.reasoning;
     return typeof reply === 'string' && reply.trim()
       ? json({ reply: reply.trim() })
       : json({ error: 'AI provider returned an empty response' }, 502);
@@ -79,7 +87,13 @@ async function callProvider(payload, env) {
 
 export default {
   async fetch(request, env) {
-    if (request.method === 'OPTIONS') return json({}, 204);
+    // 204 No Content responses MUST NOT have a response body in Fetch API
+    if (request.method === 'OPTIONS') {
+      return new Response(null, {
+        status: 204,
+        headers: CORS_HEADERS,
+      });
+    }
 
     const url = new URL(request.url);
     if (request.method !== 'POST') return json({ error: 'method not allowed' }, 405);
@@ -100,7 +114,7 @@ export default {
         return json({ error: 'invalid memory request' }, 400);
       }
       body = {
-        model: 'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning',
+        model: 'nvidia/nemotron-3.5-bolt-e4b',
         messages: [
           { role: 'system', content: String(body.system_prompt || '').slice(0, 12000) },
           {
@@ -109,8 +123,7 @@ export default {
           },
         ],
         temperature: 0.1,
-        max_tokens: 300,
-        response_format: { type: 'json_object' },
+        max_tokens: 512,
       };
     }
 
@@ -121,7 +134,18 @@ export default {
     if (url.pathname === '/api/extract-memory' && response.ok) {
       try {
         const result = await response.json();
-        return json(JSON.parse(result.reply));
+        let cleaned = (result.reply || '').trim();
+        if (cleaned.includes('```json')) {
+          cleaned = cleaned.split('```json')[1].split('```')[0].trim();
+        } else if (cleaned.includes('```')) {
+          cleaned = cleaned.split('```')[1].split('```')[0].trim();
+        }
+        const start = cleaned.indexOf('{');
+        const end = cleaned.lastIndexOf('}');
+        if (start !== -1 && end !== -1) {
+          cleaned = cleaned.slice(start, end + 1);
+        }
+        return json(JSON.parse(cleaned));
       } catch {
         return json({});
       }

@@ -202,7 +202,7 @@ async def websocket_chat(websocket: WebSocket, user_id: str = "default_user"):
 
 class APIChatRequest(BaseModel):
     messages: list
-    model: str = "meta/llama-3.2-11b-vision-instruct"
+    model: str = "nvidia/nemotron-3.5-bolt-e4b"
     temperature: float = 0.6
     top_p: float = 0.95
     max_tokens: int = 4096
@@ -244,8 +244,12 @@ def api_chat_proxy(req: APIChatRequest):
         "Authorization": f"Bearer {chat_key}",
         "Content-Type": "application/json"
     }
+    model_to_use = req.model
+    if "llama-3.2" in model_to_use or "llama-3.1" in model_to_use:
+        model_to_use = "nvidia/nemotron-3.5-bolt-e4b"
+
     payload = {
-        "model": req.model,
+        "model": model_to_use,
         "messages": req.messages,
         "temperature": req.temperature,
         "top_p": req.top_p,
@@ -255,8 +259,7 @@ def api_chat_proxy(req: APIChatRequest):
         res = requests.post("https://integrate.api.nvidia.com/v1/chat/completions", json=payload, headers=headers, timeout=60)
         if res.status_code == 200:
             msg = res.json()["choices"][0]["message"]
-            # Nemotron reasoning models return content or reasoning field
-            content = msg.get("content") or msg.get("reasoning") or msg.get("reasoning_content") or ""
+            content = msg.get("content") or msg.get("reasoning_content") or msg.get("reasoning") or ""
             return {"reply": content.strip()}
         print(f"NVIDIA API error {res.status_code}: {res.text[:300]}")
     except Exception as e:
@@ -275,7 +278,7 @@ def api_extract_memory_proxy(req: APIExtractMemoryRequest):
         "Content-Type": "application/json"
     }
     payload = {
-        "model": "meta/llama-3.2-11b-vision-instruct",
+        "model": "nvidia/nemotron-3.5-bolt-e4b",
         "messages": [
             {"role": "system", "content": req.system_prompt},
             {"role": "user", "content": f"Analyze and respond with ONLY a raw JSON object: '{req.user_message}'"}
